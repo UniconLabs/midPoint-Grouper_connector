@@ -32,7 +32,7 @@ import java.util.HashMap;
  */
 public class GrouperTestHelper {
 	
-	private static final String BASE_URL = "192.168.56.101:9443";
+	private static final String BASE_URL = "https://192.168.56.101:9443";
 	private static final String ADMIN_USERNAME = "banderson";
 	private static final String ADMIN_PASSWORD = "password";
 	private static final String SUPER_GROUP = "etc:sysadmingroup";

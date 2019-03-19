@@ -465,12 +465,13 @@ public class Processor {
 
 	// create uri from base host:
 	URIBuilder getURIBuilder() {
-		String baseHost = configuration.getBaseUrl();
-		URIBuilder uri = new URIBuilder();
-		uri.setScheme("https");
-		uri.setHost(baseHost);
-		uri.setPath(URI_BASE_PATH);
-		return uri;
+		try {
+			URIBuilder uri = new URIBuilder(configuration.getBaseUrl());
+			uri.setPath(URI_BASE_PATH);
+			return uri;
+		} catch (URISyntaxException e) {
+			throw new IllegalStateException(e.getMessage(), e);     // todo
+		}
 	}
 
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
