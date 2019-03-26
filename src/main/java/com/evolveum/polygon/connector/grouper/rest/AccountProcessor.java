@@ -117,7 +117,7 @@ class AccountProcessor {
 						rv.add(processor.getString(subjObject, "id"));
 					}
 				} else {
-					LOG.warn("Skipping not-success subject from response: {}", subject);
+					LOG.warn("Skipping not-success subject from response: {0}", subject);
 				}
 			} else {
 				throw new IllegalStateException("Expected subject as JSONObject, got " + subject);

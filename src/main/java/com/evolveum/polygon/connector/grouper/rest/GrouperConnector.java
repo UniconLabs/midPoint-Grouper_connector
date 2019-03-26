@@ -113,7 +113,7 @@ public class GrouperConnector implements TestOp, SchemaOp, Connector, SearchOp<F
 			LOG.error("Get operation failed: Attribute Object Class is not provided.");
 			throw new InvalidAttributeValueException("Attribute Object Class is not provided.");
 		} else
-			LOG.info("ObjectClasss: {0}", objClass.toString());
+			LOG.info("ObjectClass: {0}", objClass.toString());
 
 		if (handler == null) {
 			LOG.error("Get operation failed: Attribute Result Handler is not provided.");

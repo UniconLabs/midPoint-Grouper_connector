@@ -92,8 +92,8 @@ public class Processor {
 		try {
 			entity = new ByteArrayEntity(jo.toString().getBytes("UTF-8"));
 		} catch (UnsupportedEncodingException e1) {
-			String exceptionMsg = "Creating request entity failed: problem occured during entity encoding.";
-			LOG.error(exceptionMsg);
+			String exceptionMsg = "Creating request entity failed: problem occurred during entity encoding.";
+			LOG.error("{0}", exceptionMsg);
 			throw new ConnectorIOException(exceptionMsg);
 		}
 		request.setEntity(entity);
@@ -118,7 +118,7 @@ public class Processor {
 			StringBuilder exceptionMsg = new StringBuilder();
 			exceptionMsg.append("Request failed: problem occured during execute request with uri: ")
 					.append(request.getURI()).append(": \n\t").append(e.getLocalizedMessage());
-			LOG.error(exceptionMsg.toString());
+			LOG.error("{0}", exceptionMsg.toString());
 			throw new ConnectorIOException(exceptionMsg.toString(), e);
 		}
 	}
@@ -148,7 +148,7 @@ public class Processor {
 			exceptionMsg.append("Request failed: problem occured during execute request with uri: ")
 					.append(request.getURI()).append(": \n\t").append(e.getLocalizedMessage());
 			//closeResponse(response);
-			LOG.error(exceptionMsg.toString());
+			LOG.error("{0}", exceptionMsg.toString());
 			throw new ConnectorIOException(exceptionMsg.toString(), e);
 		}
 	}
@@ -196,7 +196,7 @@ public class Processor {
 			StringBuilder exceptionMsg = new StringBuilder();
 			exceptionMsg.append("Execution of the request failed: problem occurred during HTTP client execution: \n\t")
 					.append(e.getLocalizedMessage());
-			LOG.error(exceptionMsg.toString(), e);
+			LOG.error("{0}", exceptionMsg.toString(), e);
 			e.printStackTrace();
 			throw new ConnectorIOException(exceptionMsg.toString());
 		}
@@ -216,7 +216,7 @@ public class Processor {
 		try {
 			responseBody = EntityUtils.toString(response.getEntity());
 		} catch (IOException e) {
-			LOG.warn("cannot read response body: " + e, e);
+			LOG.warn("cannot read response body: {0}", e, e);
 		}
 
 		StringBuilder message = new StringBuilder();
@@ -242,37 +242,37 @@ public class Processor {
 		LOG.error("{0}", message.toString());
 		if ((statusCode == 400 || statusCode == 404) && message.toString().contains("already")) {
 			closeResponse(response);
-			LOG.error(message.toString());
+			LOG.error("{0}", message.toString());
 			throw new AlreadyExistsException(message.toString());
 		}
 		if (statusCode == 400 || statusCode == 405 || statusCode == 406) {
 			closeResponse(response);
-			LOG.error(message.toString());
+			LOG.error("{0}", message.toString());
 			throw new ConnectorIOException(message.toString());
 		}
 		if (statusCode == 402 || statusCode == 407) {
 			closeResponse(response);
-			LOG.error(message.toString());
+			LOG.error("{0}", message.toString());
 			throw new PermissionDeniedException(message.toString());
 		}
 		if (statusCode == 404 || statusCode == 410) {
 			closeResponse(response);
-			LOG.error(message.toString());
+			LOG.error("{0}", message.toString());
 			throw new UnknownUidException(message.toString());
 		}
 		if (statusCode == 408) {
 			closeResponse(response);
-			LOG.error(message.toString());
+			LOG.error("{0}", message.toString());
 			throw new OperationTimeoutException(message.toString());
 		}
 		if (statusCode == 412) {
 			closeResponse(response);
-			LOG.error(message.toString());
+			LOG.error("{0}", message.toString());
 			throw new PreconditionFailedException(message.toString());
 		}
 		if (statusCode == 418) {
 			closeResponse(response);
-			LOG.error(message.toString());
+			LOG.error("{0}", message.toString());
 			throw new UnsupportedOperationException("Sorry, no coffee: " + message.toString());
 		}
 
@@ -288,7 +288,7 @@ public class Processor {
 		try {
 			response.close();
 		} catch (IOException e) {
-			LOG.warn(e, "Failed to close response: " + response);
+			LOG.warn("Failed to close response: {0}", response, e);
 		}
 	}
 
@@ -321,7 +321,7 @@ public class Processor {
 		exceptionMsg
 				.append("Get operation failed: problem occurred because of not provided attribute of query filter: ")
 				.append(query);
-		LOG.error(exceptionMsg.toString());
+		LOG.error("{0}", exceptionMsg.toString());
 		throw new InvalidAttributeValueException(exceptionMsg.toString());
 	}
 
@@ -377,13 +377,13 @@ public class Processor {
 					StringBuilder exceptionMsg = new StringBuilder();
 					exceptionMsg.append("Unsupported type ").append(val.getClass()).append(" for attribute ")
 							.append(attrName).append(", value: ").append(val);
-					LOG.error(exceptionMsg.toString());
+					LOG.error("{0}", exceptionMsg.toString());
 					throw new InvalidAttributeValueException(exceptionMsg.toString());
 				}
 				StringBuilder exceptionMsg = new StringBuilder();
 				exceptionMsg.append("More than one value for attribute ").append(attrName).append(", values: ")
 						.append(vals);
-				LOG.error(exceptionMsg.toString());
+				LOG.error("{0}", exceptionMsg.toString());
 				throw new InvalidAttributeValueException(exceptionMsg.toString());
 			}
 		}
@@ -405,68 +405,6 @@ public class Processor {
 				}
 			} else
 				addAttr(builder, attr, jsonObj.get(attr));
-		}
-	}
-
-	Uid getUidIfExists(JSONObject jsonObj, String attr, ConnectorObjectBuilder builder) {
-		if (jsonObj.has(attr) && jsonObj.get(attr) != null && !JSONObject.NULL.equals(jsonObj.get(attr))) {
-			Uid uid = new Uid(jsonObj.getString(attr));
-			builder.setUid(uid);
-			return uid;
-		} else {
-			StringBuilder exceptionMsg = new StringBuilder();
-			exceptionMsg.append("Primary identifier '").append(attr).append("' is missing.");
-			LOG.error(exceptionMsg.toString());
-			throw new ConfigurationException(exceptionMsg.toString());
-		}
-	}
-
-	void getNameIfExists(JSONObject jsonObj, String attr, ConnectorObjectBuilder builder) {
-		if (jsonObj.has(attr) && jsonObj.get(attr) != null && !JSONObject.NULL.equals(jsonObj.get(attr))) {
-			builder.setName(new Name(jsonObj.getString(attr)));
-		} else {
-			StringBuilder exceptionMsg = new StringBuilder();
-			exceptionMsg.append("Secondary identifier '").append(attr).append("' is missing.");
-			LOG.error(exceptionMsg.toString());
-			throw new ConfigurationException(exceptionMsg.toString());
-		}
-	}
-
-	// processing of multivalue attribute containing JSONArray attribute
-	// (applicable for e.g. extended attributes of users/groups/projects)
-	// get string array of attributes 'name' from multivalue attribute 'item':
-	ArrayList<String> getMultiAttrItems(JSONObject object, String attrName, String subAttrName) {
-
-		JSONObject itemJSONObject = null;
-		JSONArray itemsJSONArray = (JSONArray) object.get(attrName);
-		int size = itemsJSONArray.length();
-		if (size > 0) {
-			ArrayList<String> itemsArray = new ArrayList<String>();
-			// String[] itemsArray = new String[size];
-			// JSONArray itemsJSONArray = roles.keySet().toArray(new
-			// String[roles.keySet().size()]);
-			// LOG.info("\n\tItems Count: {0} of atribute {1}: ' {2} '",
-			// size, attrName, itemsJSONArray);
-
-			for (int i = 0; i < itemsJSONArray.length(); i++) {
-				// LOG.ok("\n\tProcessing {0}/{1} {2}: {3}", i + 1,
-				// itemsJSONArray.length(), attrName,
-				// itemsJSONArray.getJSONObject(i).get(subAttrName));
-
-				itemJSONObject = itemsJSONArray.getJSONObject(i);
-				itemsArray.add(itemJSONObject.getString(subAttrName));
-				// LOG.info("\n\tGroup {0}: {1}", i+1, itemsArray[i]);
-			}
-			return itemsArray;
-		}
-
-		return null;
-	}
-
-	void putFieldIfExists(Set<Attribute> attributes, String fieldName, JSONObject jo) {
-		String fieldValue = getStringAttr(attributes, fieldName);
-		if (fieldValue != null) {
-			jo.put(fieldName, fieldValue);
 		}
 	}
 
@@ -518,7 +456,7 @@ public class Processor {
 		StringBuilder exceptionMsg = new StringBuilder();
 		exceptionMsg.append(operationName).append(" failed: problem occurred during executing URI: ").append(uriBuilder)
 				.append("\n\t").append(e.getLocalizedMessage());
-		LOG.error(exceptionMsg.toString());
+		LOG.error("{0}", exceptionMsg.toString());
 		return new ConnectorException(exceptionMsg.toString(), e);
 	}
 

@@ -160,7 +160,7 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 		} else {
 			return;
 		}
-		LOG.error(exceptionMsg);
+		LOG.error("{0}", exceptionMsg);
 		throw new ConfigurationException(exceptionMsg);
 	}
 	

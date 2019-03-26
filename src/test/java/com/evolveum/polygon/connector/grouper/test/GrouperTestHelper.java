@@ -41,10 +41,8 @@ public class GrouperTestHelper {
 
 	protected final GrouperConnector grouperConnector = new GrouperConnector();
 	protected final OperationOptions options = new OperationOptions(new HashMap<String, Object>());
-	protected static final Log LOG = Log.getLog(GrouperConnector.class);
 	protected final ObjectClass accountObjectClass = ObjectClass.ACCOUNT;
 
-	protected GuardedString password = new GuardedString("secret".toCharArray());
 	protected final ArrayList<ConnectorObject> results = new ArrayList<>();
 	protected SearchResultsHandler handler = new SearchResultsHandler() {
 		@Override
