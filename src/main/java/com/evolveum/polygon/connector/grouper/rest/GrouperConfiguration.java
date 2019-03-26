@@ -23,22 +23,29 @@ import org.identityconnectors.framework.spi.AbstractConfiguration;
 import org.identityconnectors.framework.spi.ConfigurationProperty;
 import org.identityconnectors.framework.spi.StatefulConfiguration;
 
+import java.util.Arrays;
+
 /**
  * @author surmanek
  * @author mederly
  *
  */
+@SuppressWarnings("WeakerAccess")
 public class GrouperConfiguration extends AbstractConfiguration implements StatefulConfiguration {
 	
 	private static final Log LOG = Log.getLog(GrouperConfiguration.class);
 
-	private String name;
-	private GuardedString password;
+	private static final String DEFAULT_GROUP_SOURCE_ID = "g:gsa";
+
 	private String baseUrl;
+	private String username;
+	private GuardedString password;
 	private String superGroup;
-	private String rootStem;
+	private String[] groupIncludePattern;
+	private String[] groupExcludePattern;
 	private Boolean ignoreSslValidation;
 	private String subjectSource;
+	private String groupSource;
 
 	// getter and setter methods for "baseUrl" attribute:
 	@ConfigurationProperty(order = 1, displayMessageKey = "baseUrl.display", helpMessageKey = "baseUrl.help", required = true)
@@ -50,21 +57,23 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 		this.baseUrl = baseUrl;
 	}
 
-	// getter and setter methods for "name" attribute:
+	// getter and setter methods for "username" attribute:
 	@ConfigurationProperty(order = 2, displayMessageKey = "username.display", helpMessageKey = "username.help", required = true)
 	public String getUsername() {
-		return name;
+		return username;
 	}
 
 	public void setUsername(String name) {
-		this.name = name;
+		this.username = name;
 	}
 
 	private String stringPassword = "";
+
 	@ConfigurationProperty(order = 3, displayMessageKey = "password.display", helpMessageKey = "password.help", required = true, confidential = false)
 	public GuardedString getPassword() {
 		return password;
 	}
+
 	public void setPassword(GuardedString password) {
 		this.password = password;
 	}
@@ -88,16 +97,25 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 		this.superGroup = superGroup;
 	}
 
-	@ConfigurationProperty(order = 5, displayMessageKey = "rootStem.display", helpMessageKey = "superGroup.help", required = true)
-	public String getRootStem() {
-		return rootStem;
+	@ConfigurationProperty(order = 5, displayMessageKey = "groupIncludePattern.display", helpMessageKey = "groupIncludePattern.help", required = true)
+	public String[] getGroupIncludePattern() {
+		return groupIncludePattern;
 	}
 
-	public void setRootStem(String rootStem) {
-		this.rootStem = rootStem;
+	public void setGroupIncludePattern(String[] groupIncludePattern) {
+		this.groupIncludePattern = groupIncludePattern;
 	}
 
-	@ConfigurationProperty(order = 6, displayMessageKey = "ignoreSslValidation.display", helpMessageKey = "ignoreSslValidation.help", required = false)
+	@ConfigurationProperty(order = 6, displayMessageKey = "groupExcludePattern.display", helpMessageKey = "groupExcludePattern.help", required = true)
+	public String[] getGroupExcludePattern() {
+		return groupExcludePattern;
+	}
+
+	public void setGroupExcludePattern(String[] groupExcludePattern) {
+		this.groupExcludePattern = groupExcludePattern;
+	}
+
+	@ConfigurationProperty(order = 7, displayMessageKey = "ignoreSslValidation.display", helpMessageKey = "ignoreSslValidation.help")
 	public Boolean getIgnoreSslValidation() {
 		return ignoreSslValidation;
 	}
@@ -106,7 +124,7 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 		this.ignoreSslValidation = ignoreSslValidation;
 	}
 
-	@ConfigurationProperty(order = 7, displayMessageKey = "subjectSource.display", helpMessageKey = "subjectSource.help", required = false)
+	@ConfigurationProperty(order = 8, displayMessageKey = "subjectSource.display", helpMessageKey = "subjectSource.help", required = true)
 	public String getSubjectSource() {
 		return subjectSource;
 	}
@@ -115,19 +133,28 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 		this.subjectSource = subjectSource;
 	}
 
+	@ConfigurationProperty(order = 9, displayMessageKey = "groupSource.display", helpMessageKey = "groupSource.help")
+	public String getGroupSource() {
+		return groupSource != null ? groupSource : DEFAULT_GROUP_SOURCE_ID;
+	}
+
+	public void setGroupSource(String groupSource) {
+		this.groupSource = groupSource;
+	}
+
 	@Override
 	public void validate() {
 		String exceptionMsg;
 		if (baseUrl == null || StringUtil.isBlank(baseUrl)) {
 			exceptionMsg = "Base url is not provided.";
-		} else if (name == null || StringUtil.isBlank(name)) {
+		} else if (username == null || StringUtil.isBlank(username)) {
 			exceptionMsg = "Name is not provided.";
 		} else if (password == null) {
 			exceptionMsg = "Password is not provided.";
 		} else if (superGroup == null) {
 			exceptionMsg = "Super group is not provided.";
-		} else if (rootStem == null) {
-			exceptionMsg = "Root stem is not provided.";
+		} else if (groupIncludePattern == null || groupIncludePattern.length == 0) {
+			exceptionMsg = "Group include pattern is not provided.";
 		} else if (subjectSource == null) {
 			exceptionMsg = "Subject source is not provided.";
 		} else {
@@ -140,22 +167,27 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 	@Override
 	public void release() {
 		LOG.info("The release of configuration resources is being performed");
-		this.password = null;
-		this.name = null;
 		this.baseUrl = null;
+		this.password = null;
+		this.username = null;
 		this.superGroup = null;
-		this.rootStem = null;
+		this.groupIncludePattern = null;
+		this.groupExcludePattern = null;
+		this.subjectSource = null;
+		this.groupSource = null;
 	}
-	
+
 	@Override
 	public String toString() {
 		return "GrouperConfiguration{" +
-				"username='" + name + '\'' +
-				", baseUrl='" + baseUrl + '\'' +
+				"baseUrl='" + baseUrl + '\'' +
+				", username='" + username + '\'' +
 				", superGroup='" + superGroup + '\'' +
-				", rootStem='" + rootStem + '\'' +
-				", ignoreSslValidation='" + ignoreSslValidation + '\'' +
+				", groupIncludePattern=" + Arrays.toString(groupIncludePattern) +
+				", groupExcludePattern=" + Arrays.toString(groupExcludePattern) +
+				", ignoreSslValidation=" + ignoreSslValidation +
+				", subjectSource='" + subjectSource + '\'' +
+				", groupSource='" + groupSource + '\'' +
 				'}';
 	}
-
 }

@@ -94,7 +94,7 @@ public class GrouperTestHelper {
 		config.setUsername(ADMIN_USERNAME);
 		config.setPassword(new GuardedString(ADMIN_PASSWORD.toCharArray()));
 		config.setSuperGroup(SUPER_GROUP);
-		config.setRootStem(ROOT_STEM);
+		config.setGroupIncludePattern(new String[] { SUPER_GROUP });
 		config.setIgnoreSslValidation(true);
 		config.setSubjectSource(SUBJECT_SOURCE);
 		return config;

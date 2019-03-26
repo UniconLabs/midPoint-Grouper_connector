@@ -77,6 +77,7 @@ public class GroupTests extends GrouperTestHelper {
 	public void allGroupsTest() {
 		results.clear();
 		grouperConnector.executeQuery(ObjectClass.GROUP, null, handler, options);
+		// most probably here will be no groups, as etc:sysadmingroup has no direct group members
 		for (ConnectorObject group : results) {
 			System.out.println("Found group: " + group);
 		}

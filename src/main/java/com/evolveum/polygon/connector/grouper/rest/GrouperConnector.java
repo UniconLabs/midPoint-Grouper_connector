@@ -34,7 +34,6 @@ import java.util.List;
  *
  */
 @ConnectorClass(displayNameKey = "GrouperConnector.rest.display", configurationClass = GrouperConfiguration.class)
-
 public class GrouperConnector implements TestOp, SchemaOp, Connector, SearchOp<Filter> {
 
 	private static final Log LOG = Log.getLog(GrouperConnector.class);
@@ -76,7 +75,7 @@ public class GrouperConnector implements TestOp, SchemaOp, Connector, SearchOp<F
 	@Override
 	public void test() {
 		LOG.info("Testing connection...");
-		processor.test();
+		groupProcessor.test();
 		LOG.ok("Testing finished successfully.");
 	}
 

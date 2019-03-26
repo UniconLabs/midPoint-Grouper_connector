@@ -1,4 +1,5 @@
-/*******************************************************************************
+/*
+ ******************************************************************************
  * Copyright 2017 Evolveum
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); 
@@ -24,6 +25,7 @@ import org.json.JSONObject;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static com.evolveum.polygon.connector.grouper.rest.Processor.*;
 
@@ -32,13 +34,13 @@ import static com.evolveum.polygon.connector.grouper.rest.Processor.*;
  * @author mederly
  *
  */
-public class AccountProcessor {
+class AccountProcessor {
 
 	private final Processor processor;
 
-	public static final String ATTR_GROUP = "group";
+	private static final String ATTR_GROUP = "group";
 
-	public AccountProcessor(Processor processor) {
+	AccountProcessor(Processor processor) {
 		this.processor = processor;
 	}
 
@@ -151,13 +153,11 @@ public class AccountProcessor {
 
 	private List<String> selectGroupNames(JSONArray groups) {
 		List<String> rv = new ArrayList<>();
-		String expectedPrefix = getConfiguration().getRootStem() + ":";
 		for (Object group : groups) {
 			if (group instanceof JSONObject) {
 				JSONObject gObject = (JSONObject) group;
 				String name = processor.getStringOrNull(gObject, "name");
-				String extension = processor.getStringOrNull(gObject, "extension");
-				if (name != null && name.equals(expectedPrefix + extension)) {
+				if (groupNameMatches(name)) {
 					rv.add(name);
 				}
 			} else {
@@ -165,6 +165,27 @@ public class AccountProcessor {
 			}
 		}
 		return rv;
+	}
+
+	private boolean groupNameMatches(String name) {
+		if (name == null) {
+			return false;
+		}
+		return groupNameMatches(name, getConfiguration().getGroupIncludePattern()) &&
+				!groupNameMatches(name, getConfiguration().getGroupExcludePattern());
+	}
+
+	private boolean groupNameMatches(String name, String[] patterns) {
+		if (patterns == null) {
+			return false;
+		}
+		for (String pattern : patterns) {
+			Pattern compiled = Pattern.compile(pattern);
+			if (compiled.matcher(name).matches()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private GrouperConfiguration getConfiguration() {

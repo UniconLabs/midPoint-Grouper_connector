@@ -30,13 +30,13 @@ import static com.evolveum.polygon.connector.grouper.rest.Processor.*;
  * @author mederly
  *
  */
-public class GroupProcessor {
+class GroupProcessor {
 
 	private final Processor processor;
 
 	private static final String ATTR_EXTENSION = "extension";
 
-	public GroupProcessor(Processor processor) {
+	GroupProcessor(Processor processor) {
 		this.processor = processor;
 	}
 
@@ -90,11 +90,12 @@ public class GroupProcessor {
 		try {
 			HttpPost request = new HttpPost(uriBuilder.build());
 			JSONObject body = new JSONObject()
-					.put("WsRestFindGroupsRequest", new JSONObject()
-							.put("wsQueryFilter", new JSONObject()
-									.put("queryFilterType", "FIND_BY_STEM_NAME")
-									.put("stemName", getConfiguration().getRootStem())));
-			executeFindGroupsResponse(request, body, handler);
+					.put("WsRestGetMembersRequest", new JSONObject()
+							.put("wsGroupLookups", new JSONObject[] { new JSONObject()
+									.put("groupName", getConfiguration().getSuperGroup()) })
+							.put("includeSubjectDetail", true)
+							.put("memberFilter", "Immediate"));
+			executeFindGroupsAsMembersResponse(request, body, handler);
 		} catch (RuntimeException | URISyntaxException e) {
 			throw processor.processException(e, uriBuilder, "Get all groups");
 		}
@@ -107,7 +108,20 @@ public class GroupProcessor {
 		processor.checkSuccess(response, "WsFindGroupsResults");
 		JSONArray groups = processor.getArray(response, "WsFindGroupsResults", "groupResults");
 		for (Object group : groups) {
-			if (!handlerGroupJsonObject(group, handler)) {
+			if (!handleGroupJsonObject(group, handler)) {
+				return;
+			}
+		}
+	}
+
+	private void executeFindGroupsAsMembersResponse(HttpPost request, JSONObject body, ResultsHandler handler) {
+		System.out.println("Request = " + body.toString());
+		JSONObject response = processor.callRequest(request, body, true, CONTENT_TYPE_JSON);
+		System.out.println("Got response: " + response);
+		processor.checkSuccess(response, WS_GET_MEMBERS_RESULTS);
+		JSONArray groups = processor.getArray(response, WS_GET_MEMBERS_RESULTS, RESULTS, WS_SUBJECTS);
+		for (Object group : groups) {
+			if (!handleGroupAsMemberJsonObject(group, handler)) {
 				return;
 			}
 		}
@@ -143,7 +157,7 @@ public class GroupProcessor {
 		}
 	}
 
-	private boolean handlerGroupJsonObject(Object group, ResultsHandler handler) {
+	private boolean handleGroupJsonObject(Object group, ResultsHandler handler) {
 		if (group instanceof JSONObject) {
 			JSONObject gObject = (JSONObject) group;
 			String name = processor.getStringOrNull(gObject, "name");
@@ -160,8 +174,49 @@ public class GroupProcessor {
 		}
 	}
 
+	private boolean handleGroupAsMemberJsonObject(Object group, ResultsHandler handler) {
+		if (group instanceof JSONObject) {
+			JSONObject gObject = (JSONObject) group;
+			String sourceId = processor.getStringOrNull(gObject, "sourceId");
+			if (sourceId == null || !sourceId.equals(getConfiguration().getGroupSource())) {
+				LOG.info("Skipping non-group member (source={0})", sourceId);
+				return true;
+			}
+			String name = processor.getStringOrNull(gObject, "name");
+			String id = processor.getStringOrNull(gObject, "id");
+			ConnectorObjectBuilder builder = new ConnectorObjectBuilder();
+			builder.setObjectClass(ObjectClass.GROUP);
+			builder.setUid(id);
+			builder.setName(name);
+			return handler.handle(builder.build());
+		} else {
+			throw new IllegalStateException("Expected group as JSONObject, got " + group);
+		}
+	}
+
 	private GrouperConfiguration getConfiguration() {
 		return processor.configuration;
+	}
+
+	void test() {
+		URIBuilder uriBuilder = processor.getURIBuilder().setPath(URI_BASE_PATH + PATH_GROUPS);
+		try {
+			HttpPost request = new HttpPost(uriBuilder.build());
+			JSONObject body = new JSONObject()
+					.put("WsRestGetMembersRequest", new JSONObject()
+							.put("wsGroupLookups", new JSONObject[] { new JSONObject()
+									.put("groupName", getConfiguration().getSuperGroup()) })
+							.put("includeSubjectDetail", true)
+							.put("memberFilter", "Immediate"));
+			System.out.println("Request = " + body.toString());
+			JSONObject response = processor.callRequest(request, body, true, CONTENT_TYPE_JSON);
+			System.out.println("Got response: " + response);
+			processor.checkSuccess(response, WS_GET_MEMBERS_RESULTS);
+			JSONArray groups = processor.getArray(response, WS_GET_MEMBERS_RESULTS, RESULTS, WS_SUBJECTS);
+			System.out.println("Super-group members found: " + groups.length());
+		} catch (RuntimeException | URISyntaxException e) {
+			throw processor.processException(e, uriBuilder, "Test");
+		}
 	}
 
 }
