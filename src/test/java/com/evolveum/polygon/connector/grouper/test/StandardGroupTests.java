@@ -26,7 +26,7 @@ import static org.testng.AssertJUnit.assertEquals;
  * @author mederly
  *
  */
-public class GroupTests extends GrouperTestHelper {
+public class StandardGroupTests extends GrouperTestHelper {
 
 	private String uuid;
 

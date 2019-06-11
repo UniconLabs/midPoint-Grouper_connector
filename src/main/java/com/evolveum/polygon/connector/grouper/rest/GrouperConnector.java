@@ -40,7 +40,8 @@ public class GrouperConnector implements TestOp, SchemaOp, Connector, SearchOp<F
 	private GrouperConfiguration configuration;
 	private Processor processor;
 	private AccountProcessor accountProcessor;
-	private GroupProcessor groupProcessor;
+	private StandardGroupProcessor standardGroupProcessor;
+	private PlainGroupProcessor plainGroupProcessor;
 
 	private static final String PROJECT_NAME = "PROJECT";
 	private static final String ATTR_GROUPS = "groups";
@@ -61,7 +62,8 @@ public class GrouperConnector implements TestOp, SchemaOp, Connector, SearchOp<F
 		this.configuration.validate();
 		this.processor = new Processor(this.configuration);
 		this.accountProcessor = new AccountProcessor(processor);
-		this.groupProcessor = new GroupProcessor(processor);
+		this.standardGroupProcessor = new StandardGroupProcessor(processor);
+		this.plainGroupProcessor = new PlainGroupProcessor(processor);
 	}
 
 	@Override
@@ -69,13 +71,14 @@ public class GrouperConnector implements TestOp, SchemaOp, Connector, SearchOp<F
 		configuration = null;
 		processor = null;
 		accountProcessor = null;
-		groupProcessor = null;
+		standardGroupProcessor = null;
+		plainGroupProcessor = null;
 	}
 
 	@Override
 	public void test() {
 		LOG.info("Testing connection...");
-		groupProcessor.test();
+		standardGroupProcessor.test();
 		LOG.ok("Testing finished successfully.");
 	}
 
@@ -83,15 +86,9 @@ public class GrouperConnector implements TestOp, SchemaOp, Connector, SearchOp<F
 	public Schema schema() {
 		SchemaBuilder schemaBuilder = new SchemaBuilder(GrouperConnector.class);
 
-		// build user schema:
-		AccountProcessor user = new AccountProcessor(processor);
-		ObjectClassInfoBuilder userBuilder = user.buildSchema();
-		schemaBuilder.defineObjectClass(userBuilder.build());
-
-		// build group schema:
-		GroupProcessor group = new GroupProcessor(processor);
-		ObjectClassInfoBuilder groupBuilder = group.buildSchema();
-		schemaBuilder.defineObjectClass(groupBuilder.build());
+		schemaBuilder.defineObjectClass(accountProcessor.buildSchema().build());
+		schemaBuilder.defineObjectClass(standardGroupProcessor.buildSchema().build());
+		schemaBuilder.defineObjectClass(plainGroupProcessor.buildSchema().build());
 
 		return schemaBuilder.build();
 	}
@@ -133,7 +130,9 @@ public class GrouperConnector implements TestOp, SchemaOp, Connector, SearchOp<F
 		if (objClass.is(ObjectClass.ACCOUNT_NAME)) {
 			accountProcessor.read(filter, handler, options);
 		} else if (objClass.is(ObjectClass.GROUP_NAME)) {
-			groupProcessor.read(filter, handler, options);
+			standardGroupProcessor.read(filter, handler, options);
+		} else if (objClass.is(plainGroupProcessor.getObjectClass().getObjectClassValue())) {
+			plainGroupProcessor.read(filter, handler, options);
 		}
 	}
 

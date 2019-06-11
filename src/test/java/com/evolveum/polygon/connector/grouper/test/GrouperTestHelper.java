@@ -95,6 +95,7 @@ public class GrouperTestHelper {
 		config.setGroupIncludePattern(new String[] { SUPER_GROUP });
 		config.setIgnoreSslValidation(true);
 		config.setSubjectSource(SUBJECT_SOURCE);
+		config.setExportStem("ref");
 		return config;
 	}
 }

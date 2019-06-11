@@ -46,6 +46,7 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 	private Boolean ignoreSslValidation;
 	private String subjectSource;
 	private String groupSource;
+	private String exportStem;
 
 	// getter and setter methods for "baseUrl" attribute:
 	@ConfigurationProperty(order = 1, displayMessageKey = "baseUrl.display", helpMessageKey = "baseUrl.help", required = true)
@@ -88,6 +89,11 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 		return stringPassword;
 	}
 
+	/**
+	 * "Super group" that marks groups and users that are to be visible through this connector.
+	 *
+	 * Used for Account and Group object classes; ignored for PlainGroup object class.
+	 */
 	@ConfigurationProperty(order = 4, displayMessageKey = "superGroup.display", helpMessageKey = "superGroup.help", required = true)
 	public String getSuperGroup() {
 		return superGroup;
@@ -97,6 +103,9 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 		this.superGroup = superGroup;
 	}
 
+	/**
+	 * Used to limit group membership to a subset of all groups. Applicable to Account object class.
+	 */
 	@ConfigurationProperty(order = 5, displayMessageKey = "groupIncludePattern.display", helpMessageKey = "groupIncludePattern.help", required = true)
 	public String[] getGroupIncludePattern() {
 		return groupIncludePattern;
@@ -106,11 +115,15 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 		this.groupIncludePattern = groupIncludePattern;
 	}
 
+	/**
+	 * Used to limit group membership to a subset of all groups. Applicable to Account object class.
+	 */
 	@ConfigurationProperty(order = 6, displayMessageKey = "groupExcludePattern.display", helpMessageKey = "groupExcludePattern.help", required = true)
 	public String[] getGroupExcludePattern() {
 		return groupExcludePattern;
 	}
 
+	@SuppressWarnings("unused")
 	public void setGroupExcludePattern(String[] groupExcludePattern) {
 		this.groupExcludePattern = groupExcludePattern;
 	}
@@ -124,6 +137,9 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 		this.ignoreSslValidation = ignoreSslValidation;
 	}
 
+	/**
+	 * Used to limit subjects returned by this connector. Applicable to Account and PlainGroup object class.
+	 */
 	@ConfigurationProperty(order = 8, displayMessageKey = "subjectSource.display", helpMessageKey = "subjectSource.help", required = true)
 	public String getSubjectSource() {
 		return subjectSource;
@@ -133,13 +149,29 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 		this.subjectSource = subjectSource;
 	}
 
+	/**
+	 * Used to limit groups returned by this connector. Applicable to Group object class. Usually not needed to change.
+	 */
 	@ConfigurationProperty(order = 9, displayMessageKey = "groupSource.display", helpMessageKey = "groupSource.help")
 	public String getGroupSource() {
 		return groupSource != null ? groupSource : DEFAULT_GROUP_SOURCE_ID;
 	}
 
+	@SuppressWarnings("unused")
 	public void setGroupSource(String groupSource) {
 		this.groupSource = groupSource;
+	}
+
+	/**
+	 * Used to specify root stem for groups returned by this connector. Applicable to PlainGroup object class.
+	 */
+	@ConfigurationProperty(order = 10, displayMessageKey = "exportStem.display", helpMessageKey = "exportStem.help")
+	public String getExportStem() {
+		return exportStem;
+	}
+
+	public void setExportStem(String exportStem) {
+		this.exportStem = exportStem;
 	}
 
 	@Override
@@ -175,6 +207,7 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 		this.groupExcludePattern = null;
 		this.subjectSource = null;
 		this.groupSource = null;
+		this.exportStem = null;
 	}
 
 	@Override
@@ -188,6 +221,7 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 				", ignoreSslValidation=" + ignoreSslValidation +
 				", subjectSource='" + subjectSource + '\'' +
 				", groupSource='" + groupSource + '\'' +
+				", exportStem='" + exportStem + '\'' +
 				'}';
 	}
 }

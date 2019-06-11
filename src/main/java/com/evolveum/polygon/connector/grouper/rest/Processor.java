@@ -64,6 +64,7 @@ public class Processor {
 	public static final String GROUP_NAME = "groupName";
 	public static final String WS_GET_GROUPS_RESULTS = "WsGetGroupsResults";
 	public static final String WS_GROUPS = "wsGroups";
+	public static final String WS_GROUP = "wsGroup";
 	GrouperConfiguration configuration;
 
 	public static final String URI_BASE_PATH = "/grouper-ws/servicesRest/json/v2_4_000";
@@ -415,19 +416,35 @@ public class Processor {
 		}
 	}
 
+	public Object getIfExists(JSONObject object, String... items) {
+		return get(object, false, items);
+	}
+
 	public Object get(JSONObject object, String... items) {
+		return get(object, true, items);
+	}
+
+	public Object get(JSONObject object, boolean mustExist, String... items) {
 		if (items.length == 0) {
 			throw new IllegalArgumentException("Empty item path");
 		}
 		for (int i = 0; i < items.length - 1; i++) {
 			if (!object.has(items[i])) {
-				throw new IllegalStateException("Item " + Arrays.asList(items).subList(0, i) + " was not found");
+				if (mustExist) {
+					throw new IllegalStateException("Item " + Arrays.asList(items).subList(0, i) + " was not found");
+				} else {
+					return null;
+				}
 			}
 			Object o = object.get(items[i]);
 			if (o instanceof JSONArray) {
 				JSONArray array = (JSONArray) o;
 				if (array.length() == 0) {
-					throw new IllegalStateException("Item " + Arrays.asList(items).subList(0, i) + " is an empty array");
+					if (mustExist) {
+						throw new IllegalStateException("Item " + Arrays.asList(items).subList(0, i) + " is an empty array");
+					} else {
+						return null;
+					}
 				} else if (array.length() > 1) {
 					throw new IllegalStateException("Item " + Arrays.asList(items).subList(0, i) + " is a multi-valued array (length: " + array.length() + ")");
 				} else {
@@ -440,12 +457,26 @@ public class Processor {
 				throw new IllegalStateException("Item " + Arrays.asList(items).subList(0, i) + " is neither object nor array; it is " + o.getClass());
 			}
 		}
-		return object.get(items[items.length - 1]);
+		String last = items[items.length - 1];
+		if (object.has(last)) {
+			return object.get(last);
+		} else if (mustExist) {
+			throw new IllegalStateException("Item " + Arrays.asList(items) + " was not found");
+		} else {
+			return null;
+		}
 	}
 
 	public JSONArray getArray(JSONObject object, String... items) {
-		Object rv = get(object, items);
-		if (rv instanceof JSONArray) {
+		return getArray(object, true, items);
+	}
+
+	public JSONArray getArray(JSONObject object, boolean mustExist, String... items) {
+		Object rv = get(object, mustExist, items);
+		if (rv == null) {
+			assert !mustExist;
+			return null;
+		} else if (rv instanceof JSONArray) {
 			return (JSONArray) rv;
 		} else {
 			throw new IllegalStateException("Item " + Arrays.asList(items) + " should be an array but it's " + rv.getClass());
