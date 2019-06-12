@@ -55,11 +55,22 @@ public class PlainGroupProcessor extends AbstractGroupProcessor {
 		return builder;
 	}
 
-	protected void getAllGroups(ResultsHandler handler, OperationOptions options) {
+	protected void getAllGroups(final ResultsHandler handler, final OperationOptions options) {
 		boolean isGetMembers = isGetMembers(options);
-		if (isGetMembers) {
-			throw new IllegalArgumentException("Cannot get members when retrieving all groups");
+		if (!isGetMembers) {
+			getAllGroupsNoMembers(handler);
+		} else {
+			ResultsHandler localHandler = new ResultsHandler() {
+				@Override
+				public boolean handle(ConnectorObject connectorObject) {
+					return getGroupByUuid(connectorObject.getUid().getUidValue(), handler, options);
+				}
+			};
+			getAllGroupsNoMembers(localHandler);
 		}
+	}
+
+	private void getAllGroupsNoMembers(ResultsHandler handler) {
 		URIBuilder uriBuilder = processor.getURIBuilder()
 				.setPath(URI_BASE_PATH + PATH_GROUPS);
 		try {
@@ -77,9 +88,9 @@ public class PlainGroupProcessor extends AbstractGroupProcessor {
 	}
 
 	@Override
-	void getGroupByUuid(String uuid, ResultsHandler handler, OperationOptions options) {
+	boolean getGroupByUuid(String uuid, ResultsHandler handler, OperationOptions options) {
 		if (!isGetMembers(options)) {
-			getGroupByUuid(uuid, handler);
+			return getGroupByUuid(uuid, handler);
 		} else {
 			URIBuilder uriBuilder = processor.getURIBuilder()
 					.setPath(URI_BASE_PATH + PATH_GROUPS);
@@ -90,7 +101,7 @@ public class PlainGroupProcessor extends AbstractGroupProcessor {
 								.put("wsGroupLookups", new JSONObject[] { new JSONObject()
 										.put("uuid", uuid) })
 								.put("includeSubjectDetail", true));
-				executeGetGroupWithMembersResponse(request, body, handler);
+				return executeGetGroupWithMembersResponse(request, body, handler);
 			} catch (RuntimeException | URISyntaxException e) {
 				throw processor.processException(e, uriBuilder, "Get all groups");
 			}
@@ -119,7 +130,7 @@ public class PlainGroupProcessor extends AbstractGroupProcessor {
 		}
 	}
 
-	private void executeGetGroupWithMembersResponse(HttpPost request, JSONObject body, ResultsHandler handler) {
+	private boolean executeGetGroupWithMembersResponse(HttpPost request, JSONObject body, ResultsHandler handler) {
 		System.out.println("Request = " + body.toString());
 		JSONObject response = processor.callRequest(request, body, true, CONTENT_TYPE_JSON);
 		System.out.println("Got response: " + response);
@@ -136,23 +147,25 @@ public class PlainGroupProcessor extends AbstractGroupProcessor {
 		builder.addAttribute(ATTR_EXTENSION, extension);
 
 		List<String> subjects = new ArrayList<>();
-		JSONArray members = processor.getArray(response, WS_GET_MEMBERS_RESULTS, RESULTS, WS_SUBJECTS);
-		for (Object memberObject : members) {
-			JSONObject member = (JSONObject) memberObject;
-			String sourceId = processor.getStringOrNull(member, "sourceId");
-			if (sourceId == null || !sourceId.equals(getConfiguration().getSubjectSource())) {
-				LOG.info("Skipping non-person member (source={0})", sourceId);
-				continue;
+		JSONArray members = processor.getArray(response, false, WS_GET_MEMBERS_RESULTS, RESULTS, WS_SUBJECTS);
+		if (members != null) {
+			for (Object memberObject : members) {
+				JSONObject member = (JSONObject) memberObject;
+				String sourceId = processor.getStringOrNull(member, "sourceId");
+				if (sourceId == null || !sourceId.equals(getConfiguration().getSubjectSource())) {
+					LOG.info("Skipping non-person member (source={0})", sourceId);
+					continue;
+				}
+				String subjectId = processor.getStringOrNull(member, "id");
+				if (subjectId != null) {
+					subjects.add(subjectId);
+				} else {
+					LOG.info("Skipping unnamed member (source={0})", member);
+				}
 			}
-			String subjectId = processor.getStringOrNull(member, "id");
-			if (subjectId != null) {
-				subjects.add(subjectId);
-			} else {
-				LOG.info("Skipping unnamed member (source={0})", member);
-			}
+			builder.addAttribute(ATTR_MEMBER, subjects);
 		}
-		builder.addAttribute(ATTR_MEMBER, subjects);
-		handler.handle(builder.build());
+		return handler.handle(builder.build());
 	}
 
 	@Override

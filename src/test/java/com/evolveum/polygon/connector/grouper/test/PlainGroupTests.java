@@ -120,10 +120,13 @@ public class PlainGroupTests extends GrouperTestHelper {
 		}
 	}
 
-	@Test(priority = 16, expectedExceptions = IllegalArgumentException.class)
+	@Test(priority = 16)
 	public void allGroupsWithMembers() {
 		results.clear();
 		grouperConnector.executeQuery(PLAIN_GROUP, null, handler, getMembersOptions());
+		for (ConnectorObject group : results) {
+			System.out.println("Found group: " + group);
+		}
 	}
 
 	@Test(priority = 20)

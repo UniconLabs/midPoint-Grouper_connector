@@ -58,8 +58,8 @@ public abstract class AbstractGroupProcessor {
 		}
 	}
 
-	void getGroupByUuid(String uuid, ResultsHandler handler, OperationOptions options) {
-		getGroupByUuid(uuid, handler);
+	boolean getGroupByUuid(String uuid, ResultsHandler handler, OperationOptions options) {
+		return getGroupByUuid(uuid, handler);
 	}
 
 	void getGroupByName(String name, ResultsHandler handler, OperationOptions options) {
@@ -68,7 +68,7 @@ public abstract class AbstractGroupProcessor {
 
 	abstract void getAllGroups(ResultsHandler handler, OperationOptions options);
 
-	void executeFindGroupsResponse(HttpPost request, JSONObject body, ResultsHandler handler) {
+	boolean executeFindGroupsResponse(HttpPost request, JSONObject body, ResultsHandler handler) {
 		System.out.println("Request = " + body.toString());
 		JSONObject response = processor.callRequest(request, body, true, CONTENT_TYPE_JSON);
 		System.out.println("Got response: " + response);
@@ -77,10 +77,11 @@ public abstract class AbstractGroupProcessor {
 		if (groups != null) {
 			for (Object group : groups) {
 				if (!handleGroupJsonObject(group, handler)) {
-					return;
+					return false;
 				}
 			}
 		}
+		return true;
 	}
 
 	void executeFindGroupsAsMembersResponse(HttpPost request, JSONObject body, ResultsHandler handler) {
@@ -111,7 +112,7 @@ public abstract class AbstractGroupProcessor {
 		}
 	}
 
-	void getGroupByUuid(String groupUuid, ResultsHandler handler) {
+	boolean getGroupByUuid(String groupUuid, ResultsHandler handler) {
 		URIBuilder uriBuilder = processor.getURIBuilder()
 				.setPath(URI_BASE_PATH + PATH_GROUPS);
 		try {
@@ -120,7 +121,7 @@ public abstract class AbstractGroupProcessor {
 					.put("WsRestFindGroupsRequest", new JSONObject()
 							.put("wsGroupLookups", new JSONObject[] { new JSONObject()
 									.put("uuid", groupUuid) }));
-			executeFindGroupsResponse(request, body, handler);
+			return executeFindGroupsResponse(request, body, handler);
 		} catch (RuntimeException | URISyntaxException e) {
 			throw processor.processException(e, uriBuilder, "Get all groups");
 		}
