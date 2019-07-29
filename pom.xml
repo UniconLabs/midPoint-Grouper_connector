@@ -27,7 +27,7 @@
     </parent>
 
     <artifactId>connector-grouper-rest</artifactId>
-    <version>0.3</version>
+    <version>0.4</version>
     <packaging>jar</packaging>
 
     <name>Grouper REST Connector</name>

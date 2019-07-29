@@ -138,34 +138,38 @@ public class PlainGroupProcessor extends AbstractGroupProcessor {
 
 		JSONObject gObject = (JSONObject) processor.get(response, WS_GET_MEMBERS_RESULTS, RESULTS, WS_GROUP);
 		String name = processor.getStringOrNull(gObject, "name");
-		String extension = processor.getStringOrNull(gObject, "extension");
-		String uuid = processor.getStringOrNull(gObject, "uuid");
-		ConnectorObjectBuilder builder = new ConnectorObjectBuilder();
-		builder.setObjectClass(getObjectClass());
-		builder.setUid(uuid);
-		builder.setName(name);
-		builder.addAttribute(ATTR_EXTENSION, extension);
+		if (processor.groupNameMatches(name)) {
+			String extension = processor.getStringOrNull(gObject, "extension");
+			String uuid = processor.getStringOrNull(gObject, "uuid");
+			ConnectorObjectBuilder builder = new ConnectorObjectBuilder();
+			builder.setObjectClass(getObjectClass());
+			builder.setUid(uuid);
+			builder.setName(name);
+			builder.addAttribute(ATTR_EXTENSION, extension);
 
-		List<String> subjects = new ArrayList<>();
-		JSONArray members = processor.getArray(response, false, WS_GET_MEMBERS_RESULTS, RESULTS, WS_SUBJECTS);
-		if (members != null) {
-			for (Object memberObject : members) {
-				JSONObject member = (JSONObject) memberObject;
-				String sourceId = processor.getStringOrNull(member, "sourceId");
-				if (sourceId == null || !sourceId.equals(getConfiguration().getSubjectSource())) {
-					LOG.info("Skipping non-person member (source={0})", sourceId);
-					continue;
+			List<String> subjects = new ArrayList<>();
+			JSONArray members = processor.getArray(response, false, WS_GET_MEMBERS_RESULTS, RESULTS, WS_SUBJECTS);
+			if (members != null) {
+				for (Object memberObject : members) {
+					JSONObject member = (JSONObject) memberObject;
+					String sourceId = processor.getStringOrNull(member, "sourceId");
+					if (sourceId == null || !sourceId.equals(getConfiguration().getSubjectSource())) {
+						LOG.info("Skipping non-person member (source={0})", sourceId);
+						continue;
+					}
+					String subjectId = processor.getStringOrNull(member, "id");
+					if (subjectId != null) {
+						subjects.add(subjectId);
+					} else {
+						LOG.info("Skipping unnamed member (source={0})", member);
+					}
 				}
-				String subjectId = processor.getStringOrNull(member, "id");
-				if (subjectId != null) {
-					subjects.add(subjectId);
-				} else {
-					LOG.info("Skipping unnamed member (source={0})", member);
-				}
+				builder.addAttribute(ATTR_MEMBER, subjects);
 			}
-			builder.addAttribute(ATTR_MEMBER, subjects);
+			return handler.handle(builder.build());
+		} else {
+			return true;
 		}
-		return handler.handle(builder.build());
 	}
 
 	@Override

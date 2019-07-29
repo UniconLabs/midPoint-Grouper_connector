@@ -157,7 +157,7 @@ class AccountProcessor {
 			if (group instanceof JSONObject) {
 				JSONObject gObject = (JSONObject) group;
 				String name = processor.getStringOrNull(gObject, "name");
-				if (groupNameMatches(name)) {
+				if (processor.groupNameMatches(name)) {
 					rv.add(name);
 				}
 			} else {
@@ -165,27 +165,6 @@ class AccountProcessor {
 			}
 		}
 		return rv;
-	}
-
-	private boolean groupNameMatches(String name) {
-		if (name == null) {
-			return false;
-		}
-		return groupNameMatches(name, getConfiguration().getGroupIncludePattern()) &&
-				!groupNameMatches(name, getConfiguration().getGroupExcludePattern());
-	}
-
-	private boolean groupNameMatches(String name, String[] patterns) {
-		if (patterns == null) {
-			return false;
-		}
-		for (String pattern : patterns) {
-			Pattern compiled = Pattern.compile(pattern);
-			if (compiled.matcher(name).matches()) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	private GrouperConfiguration getConfiguration() {

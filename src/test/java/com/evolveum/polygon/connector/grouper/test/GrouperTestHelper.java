@@ -92,7 +92,8 @@ public class GrouperTestHelper {
 		config.setUsername(ADMIN_USERNAME);
 		config.setPassword(new GuardedString(ADMIN_PASSWORD.toCharArray()));
 		config.setSuperGroup(SUPER_GROUP);
-		config.setGroupIncludePattern(new String[] { SUPER_GROUP });
+		config.setGroupIncludePattern(new String[] { ".*" });
+		config.setGroupExcludePattern(new String[] { ".*_(includes|excludes|systemOfRecord|systemOfRecordAndIncludes)" });
 		config.setIgnoreSslValidation(true);
 		config.setSubjectSource(SUBJECT_SOURCE);
 		config.setExportStem("ref");

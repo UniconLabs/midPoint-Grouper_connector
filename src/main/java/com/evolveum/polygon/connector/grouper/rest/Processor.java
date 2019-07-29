@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * @author surmanek
@@ -505,5 +506,26 @@ public class Processor {
 
 	public String getString(JSONObject object, String item) {
 		return (String) get(object, item);  // todo error handling
+	}
+
+	boolean groupNameMatches(String name) {
+		if (name == null) {
+			return false;
+		}
+		return groupNameMatches(name, configuration.getGroupIncludePattern()) &&
+				!groupNameMatches(name, configuration.getGroupExcludePattern());
+	}
+
+	private boolean groupNameMatches(String name, String[] patterns) {
+		if (patterns == null) {
+			return false;
+		}
+		for (String pattern : patterns) {
+			Pattern compiled = Pattern.compile(pattern);
+			if (compiled.matcher(name).matches()) {
+				return true;
+			}
+		}
+		return false;
 	}
 }

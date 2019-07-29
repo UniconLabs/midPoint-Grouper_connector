@@ -131,14 +131,18 @@ public abstract class AbstractGroupProcessor {
 		if (group instanceof JSONObject) {
 			JSONObject gObject = (JSONObject) group;
 			String name = processor.getStringOrNull(gObject, "name");
-			String extension = processor.getStringOrNull(gObject, "extension");
-			String uuid = processor.getStringOrNull(gObject, "uuid");
-			ConnectorObjectBuilder builder = new ConnectorObjectBuilder();
-			builder.setObjectClass(getObjectClass());
-			builder.setUid(uuid);
-			builder.setName(name);
-			builder.addAttribute(ATTR_EXTENSION, extension);
-			return handler.handle(builder.build());
+			if (processor.groupNameMatches(name)) {
+				String extension = processor.getStringOrNull(gObject, "extension");
+				String uuid = processor.getStringOrNull(gObject, "uuid");
+				ConnectorObjectBuilder builder = new ConnectorObjectBuilder();
+				builder.setObjectClass(getObjectClass());
+				builder.setUid(uuid);
+				builder.setName(name);
+				builder.addAttribute(ATTR_EXTENSION, extension);
+				return handler.handle(builder.build());
+			} else {
+				return true;
+			}
 		} else {
 			throw new IllegalStateException("Expected group as JSONObject, got " + group);
 		}
@@ -153,12 +157,16 @@ public abstract class AbstractGroupProcessor {
 				return true;
 			}
 			String name = processor.getStringOrNull(gObject, "name");
-			String id = processor.getStringOrNull(gObject, "id");
-			ConnectorObjectBuilder builder = new ConnectorObjectBuilder();
-			builder.setObjectClass(getObjectClass());
-			builder.setUid(id);
-			builder.setName(name);
-			return handler.handle(builder.build());
+			if (processor.groupNameMatches(name)) {
+				String id = processor.getStringOrNull(gObject, "id");
+				ConnectorObjectBuilder builder = new ConnectorObjectBuilder();
+				builder.setObjectClass(getObjectClass());
+				builder.setUid(id);
+				builder.setName(name);
+				return handler.handle(builder.build());
+			} else {
+				return true;
+			}
 		} else {
 			throw new IllegalStateException("Expected group as JSONObject, got " + group);
 		}
