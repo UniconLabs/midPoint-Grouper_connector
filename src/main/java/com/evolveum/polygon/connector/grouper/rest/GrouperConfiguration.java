@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2016 Evolveum
+/*
+ * Copyright (c) 2019 Evolveum
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,196 +32,217 @@ import java.util.Arrays;
  */
 @SuppressWarnings("WeakerAccess")
 public class GrouperConfiguration extends AbstractConfiguration implements StatefulConfiguration {
-	
-	private static final Log LOG = Log.getLog(GrouperConfiguration.class);
 
-	private static final String DEFAULT_GROUP_SOURCE_ID = "g:gsa";
+    private static final Log LOG = Log.getLog(GrouperConfiguration.class);
 
-	private String baseUrl;
-	private String username;
-	private GuardedString password;
-	private String superGroup;
-	private String[] groupIncludePattern;
-	private String[] groupExcludePattern;
-	private Boolean ignoreSslValidation;
-	private String subjectSource;
-	private String groupSource;
-	private String exportStem;
+    private static final String DEFAULT_GROUP_SOURCE_ID = "g:gsa";
 
-	// getter and setter methods for "baseUrl" attribute:
-	@ConfigurationProperty(order = 1, displayMessageKey = "baseUrl.display", helpMessageKey = "baseUrl.help", required = true)
-	public String getBaseUrl() {
-		return baseUrl;
-	}
+    private String baseUrl;
+    private String username;
+    private GuardedString password;
+    private Boolean ignoreSslValidation;
 
-	public void setBaseUrl(String baseUrl) {
-		this.baseUrl = baseUrl;
-	}
+    private String exportStem;
+    private String[] groupIncludePattern;
+    private String[] groupExcludePattern;
+    private String subjectSource;
+    private String testStem;
+    private String testGroup;
 
-	// getter and setter methods for "username" attribute:
-	@ConfigurationProperty(order = 2, displayMessageKey = "username.display", helpMessageKey = "username.help", required = true)
-	public String getUsername() {
-		return username;
-	}
+    // deprecated (to be removed)
+    private String superGroup;
+    private String groupSource;
 
-	public void setUsername(String name) {
-		this.username = name;
-	}
+    @ConfigurationProperty(order = 10, displayMessageKey = "baseUrl.display", helpMessageKey = "baseUrl.help", required = true)
+    public String getBaseUrl() {
+        return baseUrl;
+    }
 
-	private String stringPassword = "";
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
 
-	@ConfigurationProperty(order = 3, displayMessageKey = "password.display", helpMessageKey = "password.help", required = true, confidential = false)
-	public GuardedString getPassword() {
-		return password;
-	}
+    @ConfigurationProperty(order = 20, displayMessageKey = "username.display", helpMessageKey = "username.help", required = true)
+    public String getUsername() {
+        return username;
+    }
 
-	public void setPassword(GuardedString password) {
-		this.password = password;
-	}
-	
-	public String getStringPassword() {
-		password.access(new GuardedString.Accessor() {
-			@Override
-			public void access(char[] clearChars) {
-				stringPassword = new String(clearChars);
-			}
-		});
-		return stringPassword;
-	}
+    public void setUsername(String name) {
+        this.username = name;
+    }
 
-	/**
-	 * "Super group" that marks groups and users that are to be visible through this connector.
-	 *
-	 * Used for Account and Group object classes; ignored for PlainGroup object class.
-	 */
-	@ConfigurationProperty(order = 4, displayMessageKey = "superGroup.display", helpMessageKey = "superGroup.help", required = true)
-	public String getSuperGroup() {
-		return superGroup;
-	}
+    @ConfigurationProperty(order = 30, displayMessageKey = "password.display", helpMessageKey = "password.help", required = true, confidential = true)
+    public GuardedString getPassword() {
+        return password;
+    }
 
-	public void setSuperGroup(String superGroup) {
-		this.superGroup = superGroup;
-	}
+    public void setPassword(GuardedString password) {
+        this.password = password;
+    }
 
-	/**
-	 * Used to limit group membership to a subset of all groups. Applicable to Account object class.
-	 */
-	@ConfigurationProperty(order = 5, displayMessageKey = "groupIncludePattern.display", helpMessageKey = "groupIncludePattern.help", required = true)
-	public String[] getGroupIncludePattern() {
-		return groupIncludePattern;
-	}
+    public String getPasswordPlain() {
+        StringBuilder plain = new StringBuilder();
+        password.access(clearChars -> plain.append(new String(clearChars)));
+        return plain.toString();
+    }
 
-	public void setGroupIncludePattern(String[] groupIncludePattern) {
-		this.groupIncludePattern = groupIncludePattern;
-	}
+    /**
+     * Should we ignore SSL validation issues when connecting to the Grouper REST service? Do not use in production.
+     */
+    @ConfigurationProperty(order = 40, displayMessageKey = "ignoreSslValidation.display", helpMessageKey = "ignoreSslValidation.help")
+    public Boolean getIgnoreSslValidation() {
+        return ignoreSslValidation;
+    }
 
-	/**
-	 * Used to limit group membership to a subset of all groups. Applicable to Account object class.
-	 */
-	@ConfigurationProperty(order = 6, displayMessageKey = "groupExcludePattern.display", helpMessageKey = "groupExcludePattern.help", required = true)
-	public String[] getGroupExcludePattern() {
-		return groupExcludePattern;
-	}
+    public void setIgnoreSslValidation(Boolean ignoreSslValidation) {
+        this.ignoreSslValidation = ignoreSslValidation;
+    }
 
-	@SuppressWarnings("unused")
-	public void setGroupExcludePattern(String[] groupExcludePattern) {
-		this.groupExcludePattern = groupExcludePattern;
-	}
+    /**
+     * Used to specify root stem for groups returned by this connector. The default is ":" (the whole tree).
+     */
+    @ConfigurationProperty(order = 50, displayMessageKey = "exportStem.display", helpMessageKey = "exportStem.help")
+    public String getExportStem() {
+        return exportStem;
+    }
 
-	@ConfigurationProperty(order = 7, displayMessageKey = "ignoreSslValidation.display", helpMessageKey = "ignoreSslValidation.help")
-	public Boolean getIgnoreSslValidation() {
-		return ignoreSslValidation;
-	}
+    public void setExportStem(String exportStem) {
+        this.exportStem = exportStem;
+    }
 
-	public void setIgnoreSslValidation(Boolean ignoreSslValidation) {
-		this.ignoreSslValidation = ignoreSslValidation;
-	}
+    /**
+     * Which groups should be visible to this connector?
+     */
+    @ConfigurationProperty(order = 60, displayMessageKey = "groupIncludePattern.display", helpMessageKey = "groupIncludePattern.help")
+    public String[] getGroupIncludePattern() {
+        return groupIncludePattern;
+    }
 
-	/**
-	 * Used to limit subjects returned by this connector. Applicable to Account and PlainGroup object class.
-	 */
-	@ConfigurationProperty(order = 8, displayMessageKey = "subjectSource.display", helpMessageKey = "subjectSource.help", required = true)
-	public String getSubjectSource() {
-		return subjectSource;
-	}
+    public void setGroupIncludePattern(String[] groupIncludePattern) {
+        this.groupIncludePattern = groupIncludePattern;
+    }
 
-	public void setSubjectSource(String subjectSource) {
-		this.subjectSource = subjectSource;
-	}
+    /**
+     * Which groups should be hidden (invisible) to this connector?
+     */
+    @ConfigurationProperty(order = 70, displayMessageKey = "groupExcludePattern.display", helpMessageKey = "groupExcludePattern.help")
+    public String[] getGroupExcludePattern() {
+        return groupExcludePattern;
+    }
 
-	/**
-	 * Used to limit groups returned by this connector. Applicable to Group object class. Usually not needed to change.
-	 */
-	@ConfigurationProperty(order = 9, displayMessageKey = "groupSource.display", helpMessageKey = "groupSource.help")
-	public String getGroupSource() {
-		return groupSource != null ? groupSource : DEFAULT_GROUP_SOURCE_ID;
-	}
+    public void setGroupExcludePattern(String[] groupExcludePattern) {
+        this.groupExcludePattern = groupExcludePattern;
+    }
 
-	@SuppressWarnings("unused")
-	public void setGroupSource(String groupSource) {
-		this.groupSource = groupSource;
-	}
+    /**
+     * Used to limit subjects returned by this connector.
+     */
+    @ConfigurationProperty(order = 80, displayMessageKey = "subjectSource.display", helpMessageKey = "subjectSource.help", required = true)
+    public String getSubjectSource() {
+        return subjectSource;
+    }
 
-	/**
-	 * Used to specify root stem for groups returned by this connector. Applicable to PlainGroup object class.
-	 */
-	@ConfigurationProperty(order = 10, displayMessageKey = "exportStem.display", helpMessageKey = "exportStem.help")
-	public String getExportStem() {
-		return exportStem;
-	}
+    public void setSubjectSource(String subjectSource) {
+        this.subjectSource = subjectSource;
+    }
 
-	public void setExportStem(String exportStem) {
-		this.exportStem = exportStem;
-	}
+    /**
+     * Used to specify stem that is fetched during Test Connection (if any).
+     */
+    @ConfigurationProperty(order = 90, displayMessageKey = "testStem.display", helpMessageKey = "testStem.help")
+    public String getTestStem() {
+        return testStem;
+    }
 
-	@Override
-	public void validate() {
-		String exceptionMsg;
-		if (baseUrl == null || StringUtil.isBlank(baseUrl)) {
-			exceptionMsg = "Base url is not provided.";
-		} else if (username == null || StringUtil.isBlank(username)) {
-			exceptionMsg = "Name is not provided.";
-		} else if (password == null) {
-			exceptionMsg = "Password is not provided.";
-		} else if (superGroup == null) {
-			exceptionMsg = "Super group is not provided.";
-		} else if (groupIncludePattern == null || groupIncludePattern.length == 0) {
-			exceptionMsg = "Group include pattern is not provided.";
-		} else if (subjectSource == null) {
-			exceptionMsg = "Subject source is not provided.";
-		} else {
-			return;
-		}
-		LOG.error("{0}", exceptionMsg);
-		throw new ConfigurationException(exceptionMsg);
-	}
-	
-	@Override
-	public void release() {
-		LOG.info("The release of configuration resources is being performed");
-		this.baseUrl = null;
-		this.password = null;
-		this.username = null;
-		this.superGroup = null;
-		this.groupIncludePattern = null;
-		this.groupExcludePattern = null;
-		this.subjectSource = null;
-		this.groupSource = null;
-		this.exportStem = null;
-	}
+    public void setTestStem(String testStem) {
+        this.testStem = testStem;
+    }
 
-	@Override
-	public String toString() {
-		return "GrouperConfiguration{" +
-				"baseUrl='" + baseUrl + '\'' +
-				", username='" + username + '\'' +
-				", superGroup='" + superGroup + '\'' +
-				", groupIncludePattern=" + Arrays.toString(groupIncludePattern) +
-				", groupExcludePattern=" + Arrays.toString(groupExcludePattern) +
-				", ignoreSslValidation=" + ignoreSslValidation +
-				", subjectSource='" + subjectSource + '\'' +
-				", groupSource='" + groupSource + '\'' +
-				", exportStem='" + exportStem + '\'' +
-				'}';
-	}
+    /**
+     * Used to specify group that is fetched during Test Connection (if any).
+     */
+    @ConfigurationProperty(order = 100, displayMessageKey = "testGroup.display", helpMessageKey = "testGroup.help")
+    public String getTestGroup() {
+        return testGroup;
+    }
+
+    public void setTestGroup(String testGroup) {
+        this.testGroup = testGroup;
+    }
+
+    /**
+     * Currently unused. It is kept here just to avoid breaking older configurations. Will be removed eventually.
+     */
+    @Deprecated
+    @ConfigurationProperty(order = 9900, displayMessageKey = "superGroup.display", helpMessageKey = "superGroup.help")
+    public String getSuperGroup() {
+        return superGroup;
+    }
+
+    @Deprecated
+    public void setSuperGroup(String superGroup) {
+        this.superGroup = superGroup;
+    }
+
+    /**
+     * Currently unused. It is kept here just to avoid breaking older configurations. Will be removed eventually.
+     */
+    @Deprecated
+    @ConfigurationProperty(order = 9901, displayMessageKey = "groupSource.display", helpMessageKey = "groupSource.help")
+    public String getGroupSource() {
+        return groupSource != null ? groupSource : DEFAULT_GROUP_SOURCE_ID;
+    }
+
+    @Deprecated
+    public void setGroupSource(String groupSource) {
+        this.groupSource = groupSource;
+    }
+
+
+    @Override
+    public void validate() {
+        String exceptionMsg;
+        if (StringUtil.isBlank(baseUrl)) {
+            exceptionMsg = "Base URL is not provided.";
+        } else if (StringUtil.isBlank(username)) {
+            exceptionMsg = "Name is not provided.";
+        } else if (password == null) {
+            exceptionMsg = "Password is not provided.";
+        } else if (subjectSource == null) {
+            exceptionMsg = "Subject source is not provided.";
+        } else {
+            return;
+        }
+        LOG.error("{0}", exceptionMsg);
+        throw new ConfigurationException(exceptionMsg);
+    }
+
+    @Override
+    public void release() {
+        this.baseUrl = null;
+        this.username = null;
+        this.password = null;
+        this.ignoreSslValidation = null;
+        this.exportStem = null;
+        this.groupIncludePattern = null;
+        this.groupExcludePattern = null;
+        this.subjectSource = null;
+        this.testGroup = null;
+        this.superGroup = null;
+        this.groupSource = null;
+    }
+
+    @Override
+    public String toString() {
+        return "GrouperConfiguration{" +
+                "baseUrl='" + baseUrl + '\'' +
+                ", username='" + username + '\'' +
+                ", ignoreSslValidation=" + ignoreSslValidation +
+                ", exportStem='" + exportStem + '\'' +
+                ", groupIncludePattern=" + Arrays.toString(groupIncludePattern) +
+                ", groupExcludePattern=" + Arrays.toString(groupExcludePattern) +
+                ", subjectSource='" + subjectSource + '\'' +
+                ", testGroup='" + testGroup + '\'' +
+                '}';
+    }
 }

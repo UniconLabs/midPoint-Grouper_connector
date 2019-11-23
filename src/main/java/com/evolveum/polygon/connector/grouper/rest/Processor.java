@@ -1,20 +1,21 @@
-/*******************************************************************************
- * Copyright 2017 Evolveum
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); 
- * you may not use this file except in compliance with the License.  
+/*
+ * Copyright (c) 2019 Evolveum
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  
- * See the License for the specific language governing permissions and limitations under the License.
- ******************************************************************************/
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.evolveum.polygon.connector.grouper.rest;
 
 import org.apache.commons.codec.binary.Base64;
-import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.*;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
@@ -27,180 +28,128 @@ import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.util.EntityUtils;
 import org.identityconnectors.common.logging.Log;
 import org.identityconnectors.framework.common.exceptions.*;
-import org.identityconnectors.framework.common.objects.*;
-import org.identityconnectors.framework.common.objects.filter.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.*;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
-import java.security.cert.X509Certificate;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * @author surmanek
- *
+ * Contains generic logic for handling REST operations over Grouper.
  */
 public class Processor {
 
 	static final Log LOG = Log.getLog(GrouperConnector.class);
-	static final String CONTENT_TYPE_JSON = "application/json; charset=utf-8";
-	public static final String WS_FIND_STEMS_RESULTS = "WsFindStemsResults";
-	public static final String RESULT_METADATA = "resultMetadata";
-	public static final String SUCCESS = "success";
-	public static final String STEM_RESULTS = "stemResults";
-	public static final String PATH_STEMS = "/stems";
-	public static final String WS_GET_MEMBERS_RESULTS = "WsGetMembersResults";
-	public static final String RESULTS = "results";
-	public static final String WS_SUBJECTS = "wsSubjects";
-	public static final String WS_REST_GET_MEMBERS_REQUEST = "WsRestGetMembersRequest";
-	public static final String WS_GROUP_LOOKUPS = "wsGroupLookups";
-	public static final String GROUP_NAME = "groupName";
-	public static final String WS_GET_GROUPS_RESULTS = "WsGetGroupsResults";
-	public static final String WS_GROUPS = "wsGroups";
-	public static final String WS_GROUP = "wsGroup";
+
+	private static final String CONTENT_TYPE_JSON = "application/json; charset=utf-8";
+
+	static final String J_WS_REST_GET_MEMBERS_REQUEST = "WsRestGetMembersRequest";
+	static final String J_WS_REST_FIND_GROUPS_REQUEST = "WsRestFindGroupsRequest";
+	static final String J_WS_REST_FIND_STEMS_REQUEST = "WsRestFindStemsRequest";
+
+	static final String J_WS_QUERY_FILTER = "wsQueryFilter";
+	static final String J_WS_STEM_QUERY_FILTER = "wsStemQueryFilter";
+	static final String J_STEM_QUERY_FILTER_TYPE = "stemQueryFilterType";
+	static final String J_INCLUDE_SUBJECT_DETAIL = "includeSubjectDetail";
+	static final String J_QUERY_FILTER_TYPE = "queryFilterType";
+	static final String J_STEM_NAME = "stemName";
+	static final String J_STEM_NAME_SCOPE = "stemNameScope";
+	static final String J_GROUP_NAME = "groupName";
+
+	static final String J_WS_FIND_GROUPS_RESULTS = "WsFindGroupsResults";
+	static final String J_WS_FIND_STEMS_RESULTS = "WsFindStemsResults";
+	static final String J_WS_GET_MEMBERS_RESULTS = "WsGetMembersResults";
+
+	static final String J_RESULTS = "results";
+	static final String J_STEM_RESULTS = "stemResults";
+	static final String J_GROUP_RESULTS = "groupResults";
+	static final String J_WS_GROUP_LOOKUPS = "wsGroupLookups";
+	private static final String J_RESULT_METADATA = "resultMetadata";
+	private static final String J_SUCCESS = "success";
+
+	static final String J_WS_SUBJECTS = "wsSubjects";
+	static final String J_WS_GROUP = "wsGroup";
+
+	static final String J_UUID = "uuid";
+	static final String J_NAME = "name";
+	static final String J_EXTENSION = "extension";
+	static final String J_SOURCE_ID = "sourceId";
+	static final String J_ID = "id";
+
+	private static final String VAL_T = "T";
+	static final String VAL_FIND_BY_STEM_NAME = "FIND_BY_STEM_NAME";
+	static final String VAL_ALL_IN_SUBTREE = "ALL_IN_SUBTREE";
+
+	private static final String URI_BASE_PATH = "/grouper-ws/servicesRest/json/v2_4_000";
+	private static final String PATH_GROUPS = "/groups";
+	private static final String PATH_STEMS = "/stems";
+
 	GrouperConfiguration configuration;
 
-	public static final String URI_BASE_PATH = "/grouper-ws/servicesRest/json/v2_4_000";
-	public static final String PATH_GROUPS = "/groups";
-	public static final String PATH_SUBJECTS = "/subjects";
-
-	public Processor(GrouperConfiguration configuration) {
+	Processor(GrouperConfiguration configuration) {
 		this.configuration = configuration;
 	}
 
-	//put objects of array1 to the end of array2
-	private JSONArray concatJSONArrays(JSONArray array1, JSONArray array2){
-		for (Object obj : array1){
-			array2.put(obj);
-		}
-		return array2;
-	}
-
-	JSONObject callRequest(HttpEntityEnclosingRequestBase request, JSONObject jo, Boolean parseResult,
-			String contentType) {
-		// don't log request here - password field !!!
-		if (contentType != null)
-			request.addHeader("Content-Type", contentType);
-		request.addHeader("Authorization", "Basic " + authEncoding());
-		HttpEntity entity;
-		try {
-			entity = new ByteArrayEntity(jo.toString().getBytes("UTF-8"));
-		} catch (UnsupportedEncodingException e1) {
-			String exceptionMsg = "Creating request entity failed: problem occurred during entity encoding.";
-			LOG.error("{0}", exceptionMsg);
-			throw new ConnectorIOException(exceptionMsg);
-		}
-		request.setEntity(entity);
-		try (CloseableHttpResponse response = execute(request)){
-			
-			
-			
-			//LOG.ok("Request: {0}", request.toString());
-			//response = execute(request);
-			LOG.ok("Response: {0}", response);
+	JSONObject callRequest(HttpEntityEnclosingRequestBase request, JSONObject payload) {
+		request.addHeader("Content-Type", Processor.CONTENT_TYPE_JSON);
+		request.addHeader("Authorization", "Basic " + getAuthEncoded());
+		request.setEntity(new ByteArrayEntity(payload.toString().getBytes(StandardCharsets.UTF_8)));
+		LOG.info("Payload: {0}", payload);      // we don't log the whole request, as it contains the (encoded) password
+		try (CloseableHttpResponse response = execute(request)) {
+			LOG.info("Response: {0}", response);
 			processResponseErrors(response);
 
-			if (!parseResult) {
-				return null;
-			}
-			
 			String result = EntityUtils.toString(response.getEntity());
-
-			LOG.ok("Response body: {0}", result);
+			LOG.info("Response body: {0}", result);
 			return new JSONObject(result);
 		} catch (IOException e) {
-			StringBuilder exceptionMsg = new StringBuilder();
-			exceptionMsg.append("Request failed: problem occured during execute request with uri: ")
-					.append(request.getURI()).append(": \n\t").append(e.getLocalizedMessage());
-			LOG.error("{0}", exceptionMsg.toString());
-			throw new ConnectorIOException(exceptionMsg.toString(), e);
+			String msg = "Request failed: problem occurred during execute request with uri: " + request.getURI() + ": \n\t" + e.getLocalizedMessage();
+			LOG.error("{0}", msg);
+			throw new ConnectorIOException(msg, e);
 		}
 	}
 
-	JSONObject callRequest(HttpRequestBase request, Boolean parseResult, String contentType) {
-		// don't log request here - password field !!!
-		//CloseableHttpResponse response = null;
-		LOG.ok("request URI: {0}", request.getURI());
-		request.addHeader("Content-Type", contentType);
-		request.addHeader("Authorization", "Basic " + authEncoding());
-		try (CloseableHttpResponse response = execute(request)){
-			
-			LOG.ok("Response: {0}", response);
-			processResponseErrors(response);
-
-			if (!parseResult) {
-				//closeResponse(response);
-				return null;
-			}
-			// DO NOT USE getEntity() TWICE!!!
-			String result = EntityUtils.toString(response.getEntity());
-			//closeResponse(response);
-			LOG.ok("Response body: {0}", result);
-			return new JSONObject(result);
-		} catch (IOException e) {
-			StringBuilder exceptionMsg = new StringBuilder();
-			exceptionMsg.append("Request failed: problem occured during execute request with uri: ")
-					.append(request.getURI()).append(": \n\t").append(e.getLocalizedMessage());
-			//closeResponse(response);
-			LOG.error("{0}", exceptionMsg.toString());
-			throw new ConnectorIOException(exceptionMsg.toString(), e);
-		}
-	}
-
-	String authEncoding() {
+	private String getAuthEncoded() {
 		String username = configuration.getUsername();
-		String password = configuration.getStringPassword();
+		String password = configuration.getPasswordPlain();
 		if (username == null || username.equals("")) {
-			LOG.error("Authentication failed: Username is not provided.");
-			throw new InvalidCredentialException("Authentication failed: Username is not provided.");
+			String msg = "Authentication failed: No user name specified";
+			LOG.error("{0}", msg);
+			throw new InvalidCredentialException(msg);
 		}
 		if (password == null || password.equals("")) {
-			LOG.error("Authentication failed: Password is not provided.");
-			throw new InvalidPasswordException("Authentication failed: Password is not provided.");
+			String msg = "Authentication failed: No password specified";
+			LOG.error("{0}", msg);
+			throw new InvalidPasswordException(msg);
 		}
-		StringBuilder nameAndPasswd = new StringBuilder();
-		nameAndPasswd.append(username).append(":").append(password);
-		// String nameAndPasswd = "administrator:training"
-		String encoding = Base64.encodeBase64String(nameAndPasswd.toString().getBytes());
-		return encoding;
+		return Base64.encodeBase64String((username + ":" + password).getBytes());
 	}
 
-	CloseableHttpResponse execute(HttpUriRequest request) {
+	private CloseableHttpResponse execute(HttpUriRequest request) {
 		try {
 			HttpClientBuilder clientBuilder = HttpClientBuilder.create();
 			if (Boolean.TRUE.equals(configuration.getIgnoreSslValidation())) {
 				SSLContextBuilder sslCtxBuilder = new SSLContextBuilder();
-				sslCtxBuilder.loadTrustMaterial(null, new TrustStrategy() {
-					public boolean isTrusted(X509Certificate[] chain, String authType) {
-						return true;
-					}
-				});
+				sslCtxBuilder.loadTrustMaterial(null, (TrustStrategy) (chain, authType) -> true);
 				SSLConnectionSocketFactory factory = new SSLConnectionSocketFactory(sslCtxBuilder.build(), NoopHostnameVerifier.INSTANCE);
 				clientBuilder.setSSLSocketFactory(factory);
-				System.out.println("Ignoring SSL validation");
+				LOG.warn("Ignoring SSL validation: avoid this in production");
 			}
 			CloseableHttpClient client = clientBuilder.build();
 			CloseableHttpResponse response = client.execute(request);
-			// print response code:
-			LOG.ok("response code: {0}", String.valueOf(response.getStatusLine().getStatusCode()));
-			// client.close();
+			LOG.ok("response code: {0}", response.getStatusLine().getStatusCode());
 			// DO NOT CLOSE response HERE !!!
 			return response;
 		} catch (IOException | NoSuchAlgorithmException | KeyStoreException | KeyManagementException e) {
-			StringBuilder exceptionMsg = new StringBuilder();
-			exceptionMsg.append("Execution of the request failed: problem occurred during HTTP client execution: \n\t")
-					.append(e.getLocalizedMessage());
-			LOG.error("{0}", exceptionMsg.toString(), e);
-			e.printStackTrace();
-			throw new ConnectorIOException(exceptionMsg.toString());
+			String msg = "Execution of the request failed: problem occurred during HTTP client execution: \n\t" + e.getLocalizedMessage();
+			LOG.error("{0}", msg, e);
+			throw new ConnectorIOException(msg);
 		}
 	}
 
@@ -209,84 +158,48 @@ public class Processor {
 	 * method throws the ConnId exception that is the most appropriate match for
 	 * the error.
 	 */
-	void processResponseErrors(CloseableHttpResponse response) {
+	private void processResponseErrors(CloseableHttpResponse response) {
 		int statusCode = response.getStatusLine().getStatusCode();
 		if (statusCode >= 200 && statusCode <= 299) {
 			return;
 		}
+
+		if (statusCode == 401 || statusCode == 403) {
+			// sometimes there are binary data in responseBody
+			closeResponse(response);
+			String msg = "HTTP error " + statusCode + " " + response.getStatusLine().getReasonPhrase() + " : Authentication failure.";
+			LOG.error("{0}", msg);
+			throw new InvalidCredentialException(msg);
+		}
+
 		String responseBody = null;
 		try {
 			responseBody = EntityUtils.toString(response.getEntity());
 		} catch (IOException e) {
 			LOG.warn("cannot read response body: {0}", e, e);
 		}
-
-		StringBuilder message = new StringBuilder();
-		message.append("HTTP error ").append(statusCode).append(" ").append(response.getStatusLine().getReasonPhrase())
-				.append(" : ").append(responseBody);
-		if (statusCode == 401 || statusCode == 403) {
-			StringBuilder anauthorizedMessage = new StringBuilder(); // response
-																		// body
-																		// of
-																		// status
-																		// code
-																		// 401
-																		// contains
-																		// binary
-																		// data.
-			anauthorizedMessage.append("HTTP error ").append(statusCode).append(" ")
-					.append(response.getStatusLine().getReasonPhrase())
-					.append(" : Provided credentials are incorrect.");
-			closeResponse(response);
-			LOG.error("{0}", anauthorizedMessage.toString());
-			throw new InvalidCredentialException(anauthorizedMessage.toString());
-		}
-		LOG.error("{0}", message.toString());
-		if ((statusCode == 400 || statusCode == 404) && message.toString().contains("already")) {
-			closeResponse(response);
-			LOG.error("{0}", message.toString());
-			throw new AlreadyExistsException(message.toString());
-		}
-		if (statusCode == 400 || statusCode == 405 || statusCode == 406) {
-			closeResponse(response);
-			LOG.error("{0}", message.toString());
-			throw new ConnectorIOException(message.toString());
-		}
-		if (statusCode == 402 || statusCode == 407) {
-			closeResponse(response);
-			LOG.error("{0}", message.toString());
-			throw new PermissionDeniedException(message.toString());
-		}
-		if (statusCode == 404 || statusCode == 410) {
-			closeResponse(response);
-			LOG.error("{0}", message.toString());
-			throw new UnknownUidException(message.toString());
-		}
-		if (statusCode == 408) {
-			closeResponse(response);
-			LOG.error("{0}", message.toString());
-			throw new OperationTimeoutException(message.toString());
-		}
-		if (statusCode == 412) {
-			closeResponse(response);
-			LOG.error("{0}", message.toString());
-			throw new PreconditionFailedException(message.toString());
-		}
-		if (statusCode == 418) {
-			closeResponse(response);
-			LOG.error("{0}", message.toString());
-			throw new UnsupportedOperationException("Sorry, no coffee: " + message.toString());
-		}
-
+		String msg = "HTTP error " + statusCode + " " + response.getStatusLine().getReasonPhrase() + " : " + responseBody;
+		LOG.error("{0}", msg);
 		closeResponse(response);
-		LOG.error("{0}", message.toString());
-		throw new ConnectorException(message.toString());
+		if (statusCode == 400 || statusCode == 405 || statusCode == 406) {
+			throw new ConnectorIOException(msg);
+		} else if (statusCode == 402 || statusCode == 407) {
+			throw new PermissionDeniedException(msg);
+		} else if (statusCode == 404 || statusCode == 410) {
+			throw new UnknownUidException(msg);
+		} else if (statusCode == 408) {
+			throw new OperationTimeoutException(msg);
+		} else if (statusCode == 412) {
+			throw new PreconditionFailedException(msg);
+		} else if (statusCode == 418) {
+			throw new UnsupportedOperationException("Sorry, no coffee: " + msg);
+		} else {
+			throw new ConnectorException(msg);
+		}
 	}
 
-	void closeResponse(CloseableHttpResponse response) {
+	private void closeResponse(CloseableHttpResponse response) {
 		// to avoid pool waiting
-		if (response == null)
-			return;
 		try {
 			response.close();
 		} catch (IOException e) {
@@ -294,138 +207,43 @@ public class Processor {
 		}
 	}
 
-	// filter json objects by substring:
-	JSONArray substringFiltering(JSONArray inputJsonArray, String attrName, String subValue) {
-		JSONArray jsonArrayOut = new JSONArray();
-		// String attrName = attribute.getName().toString();
-		// LOGGER.info("\n\tSubstring filtering: {0} ({1})", attrName,
-		// subValue);
-		for (int i = 0; i < inputJsonArray.length(); i++) {
-			JSONObject jsonObject = inputJsonArray.getJSONObject(i);
-			if (!jsonObject.has(attrName)) {
-				LOG.warn("\n\tProcessing JSON Object does not contain attribute {0}.", attrName);
-				return null;
-			}
-			if (jsonObject.has(attrName) && (jsonObject.get(attrName)).toString().contains(subValue)) {
-				// LOG.ok("value: {0}, subValue: {1} - MATCH: {2}",
-				// jsonObject.get(attrName).toString(), subValue, "YES");
-				jsonArrayOut.put(jsonObject);
-			}
-			// else LOG.ok("value: {0}, subValue: {1} - MATCH: {2}",
-			// jsonObject.getString(attrName), subValue, "NO");
-		}
-		return jsonArrayOut;
-	}
-
-	// method called when attribute of query filter is null:
-	void throwNullAttrException(Filter query) {
-		StringBuilder exceptionMsg = new StringBuilder();
-		exceptionMsg
-				.append("Get operation failed: problem occurred because of not provided attribute of query filter: ")
-				.append(query);
-		LOG.error("{0}", exceptionMsg.toString());
-		throw new InvalidAttributeValueException(exceptionMsg.toString());
-	}
-
-	// create uri from base host:
-	URIBuilder getURIBuilder() {
+	private URIBuilder getUriBuilderRelative(String path) {
 		try {
 			URIBuilder uri = new URIBuilder(configuration.getBaseUrl());
-			uri.setPath(URI_BASE_PATH);
+			uri.setPath(URI_BASE_PATH + path);
 			return uri;
 		} catch (URISyntaxException e) {
 			throw new IllegalStateException(e.getMessage(), e);     // todo
 		}
 	}
 
+	URIBuilder getUriBuilderForGroups() {
+		return getUriBuilderRelative(PATH_GROUPS);
+	}
+
+	URIBuilder getUriBuilderForStems() {
+		return getUriBuilderRelative(PATH_STEMS);
+	}
+
 	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-	<T> T addAttr(ConnectorObjectBuilder builder, String attrName, T attrVal) {
-		if (attrVal != null) {
-			builder.addAttribute(attrName, attrVal);
-		}
-		return attrVal;
-	}
-
-	String getStringAttr(Set<Attribute> attributes, String attrName) throws InvalidAttributeValueException {
-		return getAttr(attributes, attrName, String.class);
-	}
-
-	<T> T getAttr(Set<Attribute> attributes, String attrName, Class<T> type)
-			throws InvalidAttributeValueException {
-		return getAttr(attributes, attrName, type, null);
-	}
-
-
-	@SuppressWarnings("unchecked")
-	private <T> T getAttr(Set<Attribute> attributes, String attrName, Class<T> type, T defaultVal)
-			throws InvalidAttributeValueException {
-		for (Attribute attr : attributes) {
-			if (attrName.equals(attr.getName())) {
-				List<Object> vals = attr.getValue();
-				if (vals == null || vals.isEmpty()) {
-					// set empty value
-					return null;
-				}
-				if (vals.size() == 1) {
-					Object val = vals.get(0);
-					if (val == null) {
-						// set empty value
-						return null;
-					}
-					if (type.isAssignableFrom(val.getClass())) {
-						return (T) val;
-					}
-					StringBuilder exceptionMsg = new StringBuilder();
-					exceptionMsg.append("Unsupported type ").append(val.getClass()).append(" for attribute ")
-							.append(attrName).append(", value: ").append(val);
-					LOG.error("{0}", exceptionMsg.toString());
-					throw new InvalidAttributeValueException(exceptionMsg.toString());
-				}
-				StringBuilder exceptionMsg = new StringBuilder();
-				exceptionMsg.append("More than one value for attribute ").append(attrName).append(", values: ")
-						.append(vals);
-				LOG.error("{0}", exceptionMsg.toString());
-				throw new InvalidAttributeValueException(exceptionMsg.toString());
-			}
-		}
-		// set default value when attrName not in changed attributes
-		return defaultVal;
-	}
-
-	void getIfExists(JSONObject jsonObj, String attr, ConnectorObjectBuilder builder, boolean isMultiValue) {
-		if (jsonObj.has(attr) && jsonObj.get(attr) != null && !JSONObject.NULL.equals(jsonObj.get(attr))) {
-			if (isMultiValue) {
-				JSONArray attrJSONArray = jsonObj.getJSONArray(attr);
-				if (attrJSONArray != null) {
-					int size = attrJSONArray.length();
-					ArrayList<String> attrStringArray = new ArrayList<String>();
-					for (int i = 0; i < size; i++) {
-						attrStringArray.add(attrJSONArray.get(i).toString());
-					}
-					builder.addAttribute(attr, attrStringArray.toArray());
-				}
-			} else
-				addAttr(builder, attr, jsonObj.get(attr));
-		}
-	}
-
-	public void checkSuccess(JSONObject response, String rootName) {
-		Object success = get(response, rootName, RESULT_METADATA, SUCCESS);
-		if (!"T".equals(success)) {
+	void checkSuccess(JSONObject response, String rootName) {
+		Object success = get(response, rootName, J_RESULT_METADATA, J_SUCCESS);
+		if (!VAL_T.equals(success)) {
 			throw new IllegalStateException("Request was not successful: " + success);
 		}
 	}
 
+	@SuppressWarnings("unused")
 	public Object getIfExists(JSONObject object, String... items) {
 		return get(object, false, items);
 	}
 
-	public Object get(JSONObject object, String... items) {
+	Object get(JSONObject object, String... items) {
 		return get(object, true, items);
 	}
 
-	public Object get(JSONObject object, boolean mustExist, String... items) {
+	private Object get(JSONObject object, boolean mustExist, String... items) {
 		if (items.length == 0) {
 			throw new IllegalArgumentException("Empty item path");
 		}
@@ -468,11 +286,12 @@ public class Processor {
 		}
 	}
 
-	public JSONArray getArray(JSONObject object, String... items) {
+	@SuppressWarnings("unused")
+	JSONArray getArray(JSONObject object, String... items) {
 		return getArray(object, true, items);
 	}
 
-	public JSONArray getArray(JSONObject object, boolean mustExist, String... items) {
+	JSONArray getArray(JSONObject object, boolean mustExist, String... items) {
 		Object rv = get(object, mustExist, items);
 		if (rv == null) {
 			assert !mustExist;
@@ -484,19 +303,18 @@ public class Processor {
 		}
 	}
 
-	public ConnectorException processException(Exception e, URIBuilder uriBuilder, final String operationName) {
-		StringBuilder exceptionMsg = new StringBuilder();
-		exceptionMsg.append(operationName).append(" failed: problem occurred during executing URI: ").append(uriBuilder)
-				.append("\n\t").append(e.getLocalizedMessage());
-		LOG.error("{0}", exceptionMsg.toString());
-		return new ConnectorException(exceptionMsg.toString(), e);
+	ConnectorException processException(Exception e, URIBuilder uriBuilder, final String operationName) {
+		String msg = operationName + " failed: problem occurred during executing URI: " + uriBuilder + "\n\t" + e.getMessage();
+		LOG.error("{0}", msg);
+		return new ConnectorException(msg, e);
 	}
 
+	@SuppressWarnings("unused")
 	public boolean isSuccess(JSONObject object) {
-		return "T".equals(getStringOrNull(object, SUCCESS));
+		return VAL_T.equals(getStringOrNull(object, J_SUCCESS));
 	}
 
-	public String getStringOrNull(JSONObject object, String item) {
+	String getStringOrNull(JSONObject object, String item) {
 		if (object.has(item)) {
 			return getString(object, item);
 		} else {
@@ -504,7 +322,7 @@ public class Processor {
 		}
 	}
 
-	public String getString(JSONObject object, String item) {
+	private String getString(JSONObject object, String item) {
 		return (String) get(object, item);  // todo error handling
 	}
 
@@ -512,8 +330,10 @@ public class Processor {
 		if (name == null) {
 			return false;
 		}
-		return groupNameMatches(name, configuration.getGroupIncludePattern()) &&
-				!groupNameMatches(name, configuration.getGroupExcludePattern());
+		String[] includes = configuration.getGroupIncludePattern();
+		String[] excludes = configuration.getGroupExcludePattern();
+		return (includes == null || includes.length == 0 || groupNameMatches(name, includes)) &&
+				!groupNameMatches(name, excludes);
 	}
 
 	private boolean groupNameMatches(String name, String[] patterns) {

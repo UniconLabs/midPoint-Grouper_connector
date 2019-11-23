@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2017 Evolveum
+/*
+ * Copyright (c) 2019 Evolveum
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,121 +20,97 @@ import org.identityconnectors.common.logging.Log;
 import org.identityconnectors.framework.common.exceptions.ConfigurationException;
 import org.identityconnectors.framework.common.exceptions.InvalidAttributeValueException;
 import org.identityconnectors.framework.common.objects.*;
-import org.identityconnectors.framework.common.objects.filter.*;
+import org.identityconnectors.framework.common.objects.filter.Filter;
+import org.identityconnectors.framework.common.objects.filter.FilterTranslator;
 import org.identityconnectors.framework.spi.Configuration;
 import org.identityconnectors.framework.spi.Connector;
 import org.identityconnectors.framework.spi.ConnectorClass;
-import org.identityconnectors.framework.spi.operations.*;
-
-import java.util.List;
+import org.identityconnectors.framework.spi.operations.SchemaOp;
+import org.identityconnectors.framework.spi.operations.SearchOp;
+import org.identityconnectors.framework.spi.operations.TestOp;
 
 /**
- * @author surmanek
- * @author mederly
- *
+ * Configuration for the Grouper connector.
  */
 @ConnectorClass(displayNameKey = "GrouperConnector.rest.display", configurationClass = GrouperConfiguration.class)
 public class GrouperConnector implements TestOp, SchemaOp, Connector, SearchOp<Filter> {
 
-	private static final Log LOG = Log.getLog(GrouperConnector.class);
-	private GrouperConfiguration configuration;
-	private Processor processor;
-	private AccountProcessor accountProcessor;
-	private StandardGroupProcessor standardGroupProcessor;
-	private PlainGroupProcessor plainGroupProcessor;
+    private static final Log LOG = Log.getLog(GrouperConnector.class);
 
-	private static final String PROJECT_NAME = "PROJECT";
-	private static final String ATTR_GROUPS = "groups";
+    private GrouperConfiguration configuration;
+    private GroupProcessor groupProcessor;
 
-	@Override
-	public GrouperConfiguration getConfiguration() {
-		return configuration;
-	}
+    @Override
+    public GrouperConfiguration getConfiguration() {
+        return configuration;
+    }
 
-	@Override
-	public void init(Configuration configuration) {
-		if (configuration == null) {
-			LOG.error("Initialization of the configuration failed: Configuration is not provided.");
-			throw new ConfigurationException(
-					"Initialization of the configuration failed: Configuration is not provided.");
-		}
-		this.configuration = (GrouperConfiguration) configuration;
-		this.configuration.validate();
-		this.processor = new Processor(this.configuration);
-		this.accountProcessor = new AccountProcessor(processor);
-		this.standardGroupProcessor = new StandardGroupProcessor(processor);
-		this.plainGroupProcessor = new PlainGroupProcessor(processor);
-	}
+    @Override
+    public void init(Configuration configuration) {
+        if (configuration == null) {
+            LOG.error("Initialization of the configuration failed: Configuration is not provided.");
+            throw new ConfigurationException(
+                    "Initialization of the configuration failed: Configuration is not provided.");
+        }
+        this.configuration = (GrouperConfiguration) configuration;
+        this.configuration.validate();
+        this.groupProcessor = new GroupProcessor(this.configuration);
+    }
 
-	@Override
-	public void dispose() {
-		configuration = null;
-		processor = null;
-		accountProcessor = null;
-		standardGroupProcessor = null;
-		plainGroupProcessor = null;
-	}
+    @Override
+    public void dispose() {
+        configuration = null;
+        groupProcessor = null;
+    }
 
-	@Override
-	public void test() {
-		LOG.info("Testing connection...");
-		standardGroupProcessor.test();
-		LOG.ok("Testing finished successfully.");
-	}
+    @Override
+    public void test() {
+        LOG.info("Testing connection...");
+        groupProcessor.test();
+        LOG.ok("Testing finished successfully.");
+    }
 
-	@Override
-	public Schema schema() {
-		SchemaBuilder schemaBuilder = new SchemaBuilder(GrouperConnector.class);
+    @Override
+    public Schema schema() {
+        SchemaBuilder schemaBuilder = new SchemaBuilder(GrouperConnector.class);
+        schemaBuilder.defineObjectClass(groupProcessor.buildSchema().build());
+        return schemaBuilder.build();
+    }
 
-		schemaBuilder.defineObjectClass(accountProcessor.buildSchema().build());
-		schemaBuilder.defineObjectClass(standardGroupProcessor.buildSchema().build());
-		schemaBuilder.defineObjectClass(plainGroupProcessor.buildSchema().build());
+    @Override
+    public FilterTranslator<Filter> createFilterTranslator(ObjectClass arg0, OperationOptions arg1) {
+        return CollectionUtil::newList;
+    }
 
-		return schemaBuilder.build();
-	}
+    @Override
+    public void executeQuery(ObjectClass objClass, Filter filter, ResultsHandler handler, OperationOptions options) {
+        LOG.info("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Execute Query-Parameters~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        if (objClass == null) {
+            LOG.error("Get operation failed: object class is not provided.");
+            throw new InvalidAttributeValueException("Object class is not provided.");
+        } else if (!objClass.is(groupProcessor.getObjectClass().getObjectClassValue())) {
+            throw new IllegalArgumentException("Unsupported object class: " + objClass);
+        } else {
+            LOG.info("ObjectClass: {0}", objClass);
+        }
 
-	@Override
-	public FilterTranslator<Filter> createFilterTranslator(ObjectClass arg0, OperationOptions arg1) {
-		return new FilterTranslator<Filter>() {
-			@Override
-			public List<Filter> translate(Filter filter) {
-				return CollectionUtil.newList(filter);
-			}
-		};
-	}
+        if (handler == null) {
+            LOG.error("Get operation failed: result handler is not provided.");
+            throw new InvalidAttributeValueException("Result handler is not provided.");
+        } else {
+            LOG.info("Execute Query-Handler: {0}", handler);
+        }
 
-	@Override
-	public void executeQuery(ObjectClass objClass, Filter filter, ResultsHandler handler, OperationOptions options) {
-		LOG.info("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Execute Query-Parameters~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-		if (objClass == null) {
-			LOG.error("Get operation failed: Attribute Object Class is not provided.");
-			throw new InvalidAttributeValueException("Attribute Object Class is not provided.");
-		} else
-			LOG.info("ObjectClass: {0}", objClass.toString());
+        if (options == null) {
+            LOG.error("Get operation failed: options are not provided.");
+            throw new InvalidAttributeValueException("Options are not provided.");
+        } else {
+            LOG.info("Options: {0}", options);
+        }
 
-		if (handler == null) {
-			LOG.error("Get operation failed: Attribute Result Handler is not provided.");
-			throw new InvalidAttributeValueException("Attribute Result Handler is not provided.");
-		} else
-			LOG.info("Execute Query-Handler: {0}", handler.toString());
+        LOG.info("Filter: {0}", filter);
+        LOG.info("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 
-		if (options == null) {
-			LOG.error("Get operation failed: Attribute Options is not provided.");
-			throw new InvalidAttributeValueException("Attribute Options is not provided.");
-		} else
-			LOG.info("Options: {0}", options.toString());
-
-		LOG.info("Filter: {0}", filter);
-		LOG.info("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-
-		if (objClass.is(ObjectClass.ACCOUNT_NAME)) {
-			accountProcessor.read(filter, handler, options);
-		} else if (objClass.is(ObjectClass.GROUP_NAME)) {
-			standardGroupProcessor.read(filter, handler, options);
-		} else if (objClass.is(plainGroupProcessor.getObjectClass().getObjectClassValue())) {
-			plainGroupProcessor.read(filter, handler, options);
-		}
-	}
-
-
+        groupProcessor.read(filter, handler, options);
+    }
 }
