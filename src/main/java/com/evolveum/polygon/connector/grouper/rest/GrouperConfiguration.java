@@ -35,8 +35,6 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 
     private static final Log LOG = Log.getLog(GrouperConfiguration.class);
 
-    private static final String DEFAULT_GROUP_SOURCE_ID = "g:gsa";
-
     private String baseUrl;
     private String username;
     private GuardedString password;
@@ -48,10 +46,6 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
     private String subjectSource;
     private String testStem;
     private String testGroup;
-
-    // deprecated (to be removed)
-    private String superGroup;
-    private String groupSource;
 
     @ConfigurationProperty(order = 10, displayMessageKey = "baseUrl.display", helpMessageKey = "baseUrl.help", required = true)
     public String getBaseUrl() {
@@ -170,35 +164,6 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
         this.testGroup = testGroup;
     }
 
-    /**
-     * Currently unused. It is kept here just to avoid breaking older configurations. Will be removed eventually.
-     */
-    @Deprecated
-    @ConfigurationProperty(order = 9900, displayMessageKey = "superGroup.display", helpMessageKey = "superGroup.help")
-    public String getSuperGroup() {
-        return superGroup;
-    }
-
-    @Deprecated
-    public void setSuperGroup(String superGroup) {
-        this.superGroup = superGroup;
-    }
-
-    /**
-     * Currently unused. It is kept here just to avoid breaking older configurations. Will be removed eventually.
-     */
-    @Deprecated
-    @ConfigurationProperty(order = 9901, displayMessageKey = "groupSource.display", helpMessageKey = "groupSource.help")
-    public String getGroupSource() {
-        return groupSource != null ? groupSource : DEFAULT_GROUP_SOURCE_ID;
-    }
-
-    @Deprecated
-    public void setGroupSource(String groupSource) {
-        this.groupSource = groupSource;
-    }
-
-
     @Override
     public void validate() {
         String exceptionMsg;
@@ -228,8 +193,6 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
         this.groupExcludePattern = null;
         this.subjectSource = null;
         this.testGroup = null;
-        this.superGroup = null;
-        this.groupSource = null;
     }
 
     @Override
