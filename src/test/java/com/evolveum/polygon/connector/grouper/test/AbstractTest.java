@@ -41,7 +41,7 @@ class AbstractTest {
 	private static final String BASE_URL = "https://192.168.56.101:9443";
 	private static final String ADMIN_USERNAME = TEST_USER;
 	private static final String ADMIN_PASSWORD = "password";
-	private static final String EXPORT_STEM = "etc";
+	private static final String BASE_STEM = "etc";
 	private static final String[] GROUP_INCLUDE_PATTERN = { ".*" };
 	private static final String[] GROUP_EXCLUDE_PATTERN = { ".*_(includes|excludes|systemOfRecord|systemOfRecordAndIncludes)" };
 	private static final String SUBJECT_SOURCE = "ldap";
@@ -69,7 +69,7 @@ class AbstractTest {
 		config.setUsername(ADMIN_USERNAME);
 		config.setPassword(new GuardedString(ADMIN_PASSWORD.toCharArray()));
 		config.setIgnoreSslValidation(true);
-		config.setExportStem(EXPORT_STEM);
+		config.setBaseStem(BASE_STEM);
 		config.setGroupIncludePattern(GROUP_INCLUDE_PATTERN);
 		config.setGroupExcludePattern(GROUP_EXCLUDE_PATTERN);
 		config.setSubjectSource(SUBJECT_SOURCE);

@@ -40,7 +40,7 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
     private GuardedString password;
     private Boolean ignoreSslValidation;
 
-    private String exportStem;
+    private String baseStem;
     private String[] groupIncludePattern;
     private String[] groupExcludePattern;
     private String subjectSource;
@@ -95,13 +95,13 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
     /**
      * Used to specify root stem for groups returned by this connector. The default is ":" (the whole tree).
      */
-    @ConfigurationProperty(order = 50, displayMessageKey = "exportStem.display", helpMessageKey = "exportStem.help")
-    public String getExportStem() {
-        return exportStem;
+    @ConfigurationProperty(order = 50, displayMessageKey = "baseStem.display", helpMessageKey = "baseStem.help")
+    public String getBaseStem() {
+        return baseStem;
     }
 
-    public void setExportStem(String exportStem) {
-        this.exportStem = exportStem;
+    public void setBaseStem(String baseStem) {
+        this.baseStem = baseStem;
     }
 
     /**
@@ -188,7 +188,7 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
         this.username = null;
         this.password = null;
         this.ignoreSslValidation = null;
-        this.exportStem = null;
+        this.baseStem = null;
         this.groupIncludePattern = null;
         this.groupExcludePattern = null;
         this.subjectSource = null;
@@ -201,7 +201,7 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
                 "baseUrl='" + baseUrl + '\'' +
                 ", username='" + username + '\'' +
                 ", ignoreSslValidation=" + ignoreSslValidation +
-                ", exportStem='" + exportStem + '\'' +
+                ", baseStem='" + baseStem + '\'' +
                 ", groupIncludePattern=" + Arrays.toString(groupIncludePattern) +
                 ", groupExcludePattern=" + Arrays.toString(groupExcludePattern) +
                 ", subjectSource='" + subjectSource + '\'' +

@@ -40,7 +40,7 @@ public class GroupProcessor extends Processor {
 	private static final String ATTR_EXTENSION = J_EXTENSION;
 	public static final String ATTR_MEMBER = "member";
 
-	private static final String DEFAULT_EXPORT_STEM = ":";
+	private static final String DEFAULT_BASE_STEM = ":";
 
 	GroupProcessor(GrouperConfiguration configuration) {
 		super(configuration);
@@ -148,12 +148,12 @@ public class GroupProcessor extends Processor {
 		URIBuilder uriBuilder = getUriBuilderForGroups();
 		try {
 			HttpPost request = new HttpPost(uriBuilder.build());
-			String configuredExportStem = configuration.getExportStem();
+			String configuredBaseStem = configuration.getBaseStem();
 			JSONObject body = new JSONObject()
 					.put(J_WS_REST_FIND_GROUPS_REQUEST, new JSONObject()
 							.put(J_WS_QUERY_FILTER, new JSONObject()
 									.put(J_QUERY_FILTER_TYPE, VAL_FIND_BY_STEM_NAME)
-									.put(J_STEM_NAME, configuredExportStem != null ? configuredExportStem : DEFAULT_EXPORT_STEM)
+									.put(J_STEM_NAME, configuredBaseStem != null ? configuredBaseStem : DEFAULT_BASE_STEM)
 									.put(J_STEM_NAME_SCOPE, VAL_ALL_IN_SUBTREE)));
 			executeFindGroups(request, body, handler);
 		} catch (RuntimeException | URISyntaxException e) {
