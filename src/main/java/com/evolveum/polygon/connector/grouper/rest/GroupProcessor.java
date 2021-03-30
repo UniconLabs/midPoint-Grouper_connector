@@ -162,7 +162,7 @@ public class GroupProcessor extends Processor {
 	}
 
 	private boolean executeFindGroups(HttpPost request, JSONObject body, ResultsHandler handler) {
-		JSONObject response = callRequest(request, body);
+		JSONObject response = callRequest(request, body, null).getResponse();
 		checkSuccess(response, J_WS_FIND_GROUPS_RESULTS);
 		JSONArray groups = getArray(response, false, J_WS_FIND_GROUPS_RESULTS, J_GROUP_RESULTS);
 		if (groups != null) {
@@ -176,7 +176,23 @@ public class GroupProcessor extends Processor {
 	}
 
 	private boolean executeGetMembers(HttpPost request, JSONObject body, ResultsHandler handler) {
-		JSONObject response = callRequest(request, body);
+		CallResponse callResponse = callRequest(request, body, (statusCode, responseBody) -> {
+			JSONObject errorResponse = new JSONObject(responseBody);
+			JSONObject resultMetadata = (JSONObject) getIfExists(errorResponse, J_WS_GET_MEMBERS_RESULTS, J_RESULTS, J_RESULT_METADATA);
+			String resultCode = resultMetadata != null ? getStringOrNull(resultMetadata, J_RESULT_CODE) : null;
+			boolean notFound = "GROUP_NOT_FOUND".equals(resultCode);
+			if (notFound) {
+				return CallResponse.error(responseBody);
+			} else {
+				return null;
+			}
+		});
+
+		if (!callResponse.isSuccess()) {
+			return true;
+		}
+
+		JSONObject response = callResponse.getResponse();
 		checkSuccess(response, J_WS_GET_MEMBERS_RESULTS);
 		JSONObject gObject = (JSONObject) get(response, J_WS_GET_MEMBERS_RESULTS, J_RESULTS, J_WS_GROUP);
 		String name = getStringOrNull(gObject, J_NAME);
@@ -251,7 +267,7 @@ public class GroupProcessor extends Processor {
 							.put(J_WS_STEM_QUERY_FILTER, new JSONObject()
 									.put(J_STEM_QUERY_FILTER_TYPE, VAL_FIND_BY_STEM_NAME)
 									.put(J_STEM_NAME, stemName)));
-			JSONObject response = callRequest(request, body);
+			JSONObject response = callRequest(request, body, null).getResponse();
 			checkSuccess(response, J_WS_FIND_STEMS_RESULTS);
 			stems = getArray(response, true, J_WS_FIND_STEMS_RESULTS, J_STEM_RESULTS);
 		} catch (RuntimeException | URISyntaxException e) {

@@ -70,7 +70,8 @@ public class Processor {
 	static final String J_STEM_RESULTS = "stemResults";
 	static final String J_GROUP_RESULTS = "groupResults";
 	static final String J_WS_GROUP_LOOKUPS = "wsGroupLookups";
-	private static final String J_RESULT_METADATA = "resultMetadata";
+	static final String J_RESULT_METADATA = "resultMetadata";
+	static final String J_RESULT_CODE = "resultCode";
 	private static final String J_SUCCESS = "success";
 
 	static final String J_WS_SUBJECTS = "wsSubjects";
@@ -96,18 +97,14 @@ public class Processor {
 		this.configuration = configuration;
 	}
 
-	JSONObject callRequest(HttpEntityEnclosingRequestBase request, JSONObject payload) {
+	CallResponse callRequest(HttpEntityEnclosingRequestBase request, JSONObject payload, ErrorHandler errorHandler) {
 		request.addHeader("Content-Type", Processor.CONTENT_TYPE_JSON);
 		request.addHeader("Authorization", "Basic " + getAuthEncoded());
 		request.setEntity(new ByteArrayEntity(payload.toString().getBytes(StandardCharsets.UTF_8)));
 		LOG.info("Payload: {0}", payload);      // we don't log the whole request, as it contains the (encoded) password
 		try (CloseableHttpResponse response = execute(request)) {
 			LOG.info("Response: {0}", response);
-			processResponseErrors(response);
-
-			String result = EntityUtils.toString(response.getEntity());
-			LOG.info("Response body: {0}", result);
-			return new JSONObject(result);
+			return processResponse(response, errorHandler);
 		} catch (IOException e) {
 			String msg = "Request failed: problem occurred during execute request with uri: " + request.getURI() + ": \n\t" + e.getLocalizedMessage();
 			LOG.error("{0}", msg);
@@ -157,11 +154,28 @@ public class Processor {
 	 * Checks HTTP response for errors. If the response is an error then the
 	 * method throws the ConnId exception that is the most appropriate match for
 	 * the error.
+	 *
+	 * @return true if the processing can continue
 	 */
-	private void processResponseErrors(CloseableHttpResponse response) {
+	private CallResponse processResponse(CloseableHttpResponse response, ErrorHandler errorHandler) throws IOException {
+
 		int statusCode = response.getStatusLine().getStatusCode();
+		LOG.info("Status code: {0}", statusCode);
+
+		String result = null;
+		try {
+			result = EntityUtils.toString(response.getEntity());
+			LOG.info("Response body: {0}", result);
+		} catch (IOException e) {
+			if (statusCode >= 200 && statusCode <= 299) {
+				throw e;
+			} else {
+				LOG.warn("cannot read response body: {0}", e, e);
+			}
+		}
+
 		if (statusCode >= 200 && statusCode <= 299) {
-			return;
+			return CallResponse.ok(result);
 		}
 
 		if (statusCode == 401 || statusCode == 403) {
@@ -172,29 +186,41 @@ public class Processor {
 			throw new InvalidCredentialException(msg);
 		}
 
-		String responseBody = null;
-		try {
-			responseBody = EntityUtils.toString(response.getEntity());
-		} catch (IOException e) {
-			LOG.warn("cannot read response body: {0}", e, e);
-		}
-		String msg = "HTTP error " + statusCode + " " + response.getStatusLine().getReasonPhrase() + " : " + responseBody;
-		LOG.error("{0}", msg);
+		String msg = "HTTP error " + statusCode + " " + response.getStatusLine().getReasonPhrase() + " : " + result;
 		closeResponse(response);
-		if (statusCode == 400 || statusCode == 405 || statusCode == 406) {
-			throw new ConnectorIOException(msg);
-		} else if (statusCode == 402 || statusCode == 407) {
-			throw new PermissionDeniedException(msg);
-		} else if (statusCode == 404 || statusCode == 410) {
-			throw new UnknownUidException(msg);
-		} else if (statusCode == 408) {
-			throw new OperationTimeoutException(msg);
-		} else if (statusCode == 412) {
-			throw new PreconditionFailedException(msg);
-		} else if (statusCode == 418) {
-			throw new UnsupportedOperationException("Sorry, no coffee: " + msg);
-		} else {
+		try {
+			if (statusCode == 400 || statusCode == 405 || statusCode == 406) {
+				throw new ConnectorIOException(msg);
+			} else if (statusCode == 402 || statusCode == 407) {
+				throw new PermissionDeniedException(msg);
+			} else if (statusCode == 404 || statusCode == 410) {
+				throw new UnknownUidException(msg);
+			} else if (statusCode == 408) {
+				throw new OperationTimeoutException(msg);
+			} else if (statusCode == 412) {
+				throw new PreconditionFailedException(msg);
+			} else if (statusCode == 418) {
+				throw new UnsupportedOperationException("Sorry, no coffee: " + msg);
+			}
+
+			if (errorHandler != null) {
+				try {
+					CallResponse callResponse = errorHandler.handleError(statusCode, result);
+					if (callResponse != null) {
+						return callResponse;
+					}
+				} catch (Exception e) {
+					// TODO Consider improving this
+					throw new ConnectorException("Exception while handling error. Original message: " +
+							msg + ", exception: " + e.getMessage(), e);
+				}
+			}
+
 			throw new ConnectorException(msg);
+
+		} catch (Exception e) {
+			LOG.error("{0}", msg);
+			throw e;
 		}
 	}
 
@@ -347,5 +373,40 @@ public class Processor {
 			}
 		}
 		return false;
+	}
+
+	@FunctionalInterface
+	public interface ErrorHandler {
+
+		/**
+		 * Returns null if the error couldn't be handled
+		 */
+		CallResponse handleError(int statusCode, String responseBody);
+	}
+
+	static class CallResponse {
+		private final boolean success;
+		private final JSONObject response;
+
+		private CallResponse(boolean success, JSONObject response) {
+			this.success = success;
+			this.response = response;
+		}
+
+		static CallResponse ok(String text) {
+			return new CallResponse(true, new JSONObject(text));
+		}
+
+		static CallResponse error(String text) {
+			return new CallResponse(false, new JSONObject(text));
+		}
+
+		boolean isSuccess() {
+			return success;
+		}
+
+		JSONObject getResponse() {
+			return response;
+		}
 	}
 }

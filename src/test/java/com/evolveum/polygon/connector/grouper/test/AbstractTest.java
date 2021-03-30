@@ -36,9 +36,11 @@ class AbstractTest {
 	// Test configuration
 	static final String TEST_USER = "banderson";
 	static final String TEST_GROUP = "etc:sysadmingroup";
+	static final String TEST_GROUP_NON_EXISTENT = "etc:thisGroupDoesNotExist";
+	static final String TEST_UUID_NON_EXISTENT = "dd089842948329438249284928289XXX";
 
 	// Connector configuration
-	private static final String BASE_URL = "https://192.168.56.101:9443";
+	private static final String BASE_URL = "https://localhost:9443";
 	private static final String ADMIN_USERNAME = TEST_USER;
 	private static final String ADMIN_PASSWORD = "password";
 	private static final String BASE_STEM = "etc";
