@@ -26,70 +26,29 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.util.EntityUtils;
+import org.identityconnectors.common.CollectionUtil;
+import org.identityconnectors.common.StringUtil;
 import org.identityconnectors.common.logging.Log;
 import org.identityconnectors.framework.common.exceptions.*;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
-
 import java.io.*;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.regex.Pattern;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
 
 /**
- * Contains generic logic for handling REST operations over Grouper.
+ * Contains generic logic for handling REST operations.
  */
 public class Processor {
 
 	static final Log LOG = Log.getLog(GrouperConnector.class);
-
-	private static final String CONTENT_TYPE_JSON = "application/json; charset=utf-8";
-
-	static final String J_WS_REST_GET_MEMBERS_REQUEST = "WsRestGetMembersRequest";
-	static final String J_WS_REST_FIND_GROUPS_REQUEST = "WsRestFindGroupsRequest";
-	static final String J_WS_REST_FIND_STEMS_REQUEST = "WsRestFindStemsRequest";
-
-	static final String J_WS_QUERY_FILTER = "wsQueryFilter";
-	static final String J_WS_STEM_QUERY_FILTER = "wsStemQueryFilter";
-	static final String J_STEM_QUERY_FILTER_TYPE = "stemQueryFilterType";
-	static final String J_INCLUDE_SUBJECT_DETAIL = "includeSubjectDetail";
-	static final String J_QUERY_FILTER_TYPE = "queryFilterType";
-	static final String J_STEM_NAME = "stemName";
-	static final String J_STEM_NAME_SCOPE = "stemNameScope";
-	static final String J_GROUP_NAME = "groupName";
-
-	static final String J_WS_FIND_GROUPS_RESULTS = "WsFindGroupsResults";
-	static final String J_WS_FIND_STEMS_RESULTS = "WsFindStemsResults";
-	static final String J_WS_GET_MEMBERS_RESULTS = "WsGetMembersResults";
-
-	static final String J_RESULTS = "results";
-	static final String J_STEM_RESULTS = "stemResults";
-	static final String J_GROUP_RESULTS = "groupResults";
-	static final String J_WS_GROUP_LOOKUPS = "wsGroupLookups";
-	static final String J_RESULT_METADATA = "resultMetadata";
-	static final String J_RESULT_CODE = "resultCode";
-	private static final String J_SUCCESS = "success";
-
-	static final String J_WS_SUBJECTS = "wsSubjects";
-	static final String J_WS_GROUP = "wsGroup";
-
-	static final String J_UUID = "uuid";
-	static final String J_NAME = "name";
-	static final String J_EXTENSION = "extension";
-	static final String J_SOURCE_ID = "sourceId";
-	static final String J_ID = "id";
-
-	private static final String VAL_T = "T";
-	static final String VAL_FIND_BY_STEM_NAME = "FIND_BY_STEM_NAME";
-	static final String VAL_ALL_IN_SUBTREE = "ALL_IN_SUBTREE";
-
-	private static final String URI_BASE_PATH = "/grouper-ws/servicesRest/json/v2_4_000";
-	private static final String PATH_GROUPS = "/groups";
-	private static final String PATH_STEMS = "/stems";
 
 	GrouperConfiguration configuration;
 
@@ -98,14 +57,26 @@ public class Processor {
 	}
 
 	CallResponse callRequest(HttpEntityEnclosingRequestBase request, JSONObject payload, ErrorHandler errorHandler) {
-		request.addHeader("Content-Type", Processor.CONTENT_TYPE_JSON);
-		request.addHeader("Authorization", "Basic " + getAuthEncoded());
+		if (!request.containsHeader("Content-Type")) {
+			request.addHeader("Content-Type", configuration.getContentType());
+		}
+
+		if (!request.containsHeader("Authorization")) {
+			request.addHeader("Authorization", "Basic " + getAuthEncoded());
+		}
+
 		request.setEntity(new ByteArrayEntity(payload.toString().getBytes(StandardCharsets.UTF_8)));
-		LOG.info("Payload: {0}", payload);      // we don't log the whole request, as it contains the (encoded) password
+
+		if (Boolean.TRUE.equals(configuration.getLogRequestResponses())) {
+			LOG.info("Payload: {0}", payload);      // we don't log the whole request, as it contains the (encoded) password
+		}
 		try (CloseableHttpResponse response = execute(request)) {
-			LOG.info("Response: {0}", response);
+			if (Boolean.TRUE.equals(configuration.getLogRequestResponses())) {
+				LOG.info("Response: {0}", response);
+			}
+
 			return processResponse(response, errorHandler);
-		} catch (IOException e) {
+		} catch (Exception e) {
 			String msg = "Request failed: problem occurred during execute request with uri: " + request.getURI() + ": \n\t" + e.getLocalizedMessage();
 			LOG.error("{0}", msg);
 			throw new ConnectorIOException(msg, e);
@@ -143,7 +114,7 @@ public class Processor {
 			LOG.ok("response code: {0}", response.getStatusLine().getStatusCode());
 			// DO NOT CLOSE response HERE !!!
 			return response;
-		} catch (IOException | NoSuchAlgorithmException | KeyStoreException | KeyManagementException e) {
+		} catch (Exception e) {
 			String msg = "Execution of the request failed: problem occurred during HTTP client execution: \n\t" + e.getLocalizedMessage();
 			LOG.error("{0}", msg, e);
 			throw new ConnectorIOException(msg);
@@ -158,7 +129,6 @@ public class Processor {
 	 * @return true if the processing can continue
 	 */
 	private CallResponse processResponse(CloseableHttpResponse response, ErrorHandler errorHandler) throws IOException {
-
 		int statusCode = response.getStatusLine().getStatusCode();
 		LOG.info("Status code: {0}", statusCode);
 
@@ -215,9 +185,7 @@ public class Processor {
 							msg + ", exception: " + e.getMessage(), e);
 				}
 			}
-
 			throw new ConnectorException(msg);
-
 		} catch (Exception e) {
 			LOG.error("{0}", msg);
 			throw e;
@@ -233,146 +201,14 @@ public class Processor {
 		}
 	}
 
-	private URIBuilder getUriBuilderRelative(String path) {
+	public URIBuilder getUriBuilderRelative(String path) {
 		try {
 			URIBuilder uri = new URIBuilder(configuration.getBaseUrl());
-			uri.setPath(URI_BASE_PATH + path);
+			uri.setPath(configuration.getUriBasePath() + path);
 			return uri;
 		} catch (URISyntaxException e) {
 			throw new IllegalStateException(e.getMessage(), e);     // todo
 		}
-	}
-
-	URIBuilder getUriBuilderForGroups() {
-		return getUriBuilderRelative(PATH_GROUPS);
-	}
-
-	URIBuilder getUriBuilderForStems() {
-		return getUriBuilderRelative(PATH_STEMS);
-	}
-
-	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-	void checkSuccess(JSONObject response, String rootName) {
-		Object success = get(response, rootName, J_RESULT_METADATA, J_SUCCESS);
-		if (!VAL_T.equals(success)) {
-			throw new IllegalStateException("Request was not successful: " + success);
-		}
-	}
-
-	@SuppressWarnings("unused")
-	public Object getIfExists(JSONObject object, String... items) {
-		return get(object, false, items);
-	}
-
-	Object get(JSONObject object, String... items) {
-		return get(object, true, items);
-	}
-
-	private Object get(JSONObject object, boolean mustExist, String... items) {
-		if (items.length == 0) {
-			throw new IllegalArgumentException("Empty item path");
-		}
-		for (int i = 0; i < items.length - 1; i++) {
-			if (!object.has(items[i])) {
-				if (mustExist) {
-					throw new IllegalStateException("Item " + Arrays.asList(items).subList(0, i) + " was not found");
-				} else {
-					return null;
-				}
-			}
-			Object o = object.get(items[i]);
-			if (o instanceof JSONArray) {
-				JSONArray array = (JSONArray) o;
-				if (array.length() == 0) {
-					if (mustExist) {
-						throw new IllegalStateException("Item " + Arrays.asList(items).subList(0, i) + " is an empty array");
-					} else {
-						return null;
-					}
-				} else if (array.length() > 1) {
-					throw new IllegalStateException("Item " + Arrays.asList(items).subList(0, i) + " is a multi-valued array (length: " + array.length() + ")");
-				} else {
-					o = array.get(0);
-				}
-			}
-			if (o instanceof JSONObject) {
-				object = (JSONObject) o;
-			} else {
-				throw new IllegalStateException("Item " + Arrays.asList(items).subList(0, i) + " is neither object nor array; it is " + o.getClass());
-			}
-		}
-		String last = items[items.length - 1];
-		if (object.has(last)) {
-			return object.get(last);
-		} else if (mustExist) {
-			throw new IllegalStateException("Item " + Arrays.asList(items) + " was not found");
-		} else {
-			return null;
-		}
-	}
-
-	@SuppressWarnings("unused")
-	JSONArray getArray(JSONObject object, String... items) {
-		return getArray(object, true, items);
-	}
-
-	JSONArray getArray(JSONObject object, boolean mustExist, String... items) {
-		Object rv = get(object, mustExist, items);
-		if (rv == null) {
-			assert !mustExist;
-			return null;
-		} else if (rv instanceof JSONArray) {
-			return (JSONArray) rv;
-		} else {
-			throw new IllegalStateException("Item " + Arrays.asList(items) + " should be an array but it's " + rv.getClass());
-		}
-	}
-
-	ConnectorException processException(Exception e, URIBuilder uriBuilder, final String operationName) {
-		String msg = operationName + " failed: problem occurred during executing URI: " + uriBuilder + "\n\t" + e.getMessage();
-		LOG.error("{0}", msg);
-		return new ConnectorException(msg, e);
-	}
-
-	@SuppressWarnings("unused")
-	public boolean isSuccess(JSONObject object) {
-		return VAL_T.equals(getStringOrNull(object, J_SUCCESS));
-	}
-
-	String getStringOrNull(JSONObject object, String item) {
-		if (object.has(item)) {
-			return getString(object, item);
-		} else {
-			return null;
-		}
-	}
-
-	private String getString(JSONObject object, String item) {
-		return (String) get(object, item);  // todo error handling
-	}
-
-	boolean groupNameMatches(String name) {
-		if (name == null) {
-			return false;
-		}
-		String[] includes = configuration.getGroupIncludePattern();
-		String[] excludes = configuration.getGroupExcludePattern();
-		return (includes == null || includes.length == 0 || groupNameMatches(name, includes)) &&
-				!groupNameMatches(name, excludes);
-	}
-
-	private boolean groupNameMatches(String name, String[] patterns) {
-		if (patterns == null) {
-			return false;
-		}
-		for (String pattern : patterns) {
-			Pattern compiled = Pattern.compile(pattern);
-			if (compiled.matcher(name).matches()) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	@FunctionalInterface
@@ -407,6 +243,149 @@ public class Processor {
 
 		JSONObject getResponse() {
 			return response;
+		}
+	}
+
+	// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+	@SuppressWarnings("unused")
+	public Object getIfExists(final JSONObject object, final List<String> possibleRootPathObjects, final List<String> potentialObjectNamesToReturn) {
+		return get(object, false, possibleRootPathObjects,  potentialObjectNamesToReturn);
+	}
+
+	Object get(final JSONObject object, final List<String> possibleRootPathObjects, final List<String> potentialObjectNamesToReturn) {
+		return get(object, true, possibleRootPathObjects, potentialObjectNamesToReturn);
+	}
+
+	/**
+	 * Used for parsing JSON response objects and returns a target JSONObject or JSONArray
+	 * @param object
+	 * @param possibleRootPathObjects
+	 * @param potentialObjectNamesToFind
+	 * @return
+	 */
+	private Object get(final JSONObject object, boolean mustExist, final List<String> possibleRootPathObjects, final List<String> potentialObjectNamesToFind) {
+		Object objectToReturn = null;
+
+		if (potentialObjectNamesToFind.isEmpty()) {
+			throw new IllegalArgumentException("Empty item search, there is a problem with this connector!");
+		}
+
+		final String keyMatch = (possibleRootPathObjects != null) ? object.keySet().stream().filter(possibleRootPathObjects::contains).findFirst().orElse(null) : null;
+		if (mustExist && StringUtil.isBlank(keyMatch)) {
+			throw new IllegalStateException("Expected one of " + possibleRootPathObjects + "; but none were found in the JSON response!");
+		}
+
+		final List<String> keysToCheck;
+		if (StringUtil.isNotBlank(keyMatch)) {
+			keysToCheck = List.of(keyMatch);
+
+		} else {
+			keysToCheck = object.keySet().stream().filter(potentialObjectNamesToFind::contains).collect(Collectors.toList()); //response object has key or is a simple group object
+
+			if (keysToCheck.isEmpty()) {
+				keysToCheck.addAll(object.keySet());
+			}
+		}
+
+		for (String key : keysToCheck) {
+			final Object keyObject = object.get(key);
+
+			if (keyObject instanceof JSONObject) {
+				final JSONObject o = (JSONObject) keyObject;
+				final String match = o.keySet().stream().filter(potentialObjectNamesToFind::contains).findFirst().orElse(null);
+
+				if (StringUtil.isNotBlank(match)) {
+					objectToReturn = o.get(match); //second level most desired JSON Objects are going to be found here
+ 					break;
+				} else {
+					try {
+						final Object possible = get(o, false, possibleRootPathObjects, potentialObjectNamesToFind); //3rd level or more recursive
+						if (possible != null) {
+							objectToReturn = possible;
+							break;
+						}
+					} catch (JSONException e) {
+						//swallow
+					}
+				}
+
+			} else if (keyObject instanceof JSONArray) {
+				final JSONArray o = (JSONArray) keyObject; //TODO not checking depth in JSON arrays at this time, just each element, is there a case in WS where this wouldn't work?
+				Object possible = null;
+
+				for (int i = 0; i < o.length(); i++) {
+					try {
+						final String match = ((JSONObject) o.get(i)).keySet().stream()
+								.filter(potentialObjectNamesToFind::contains).findFirst().orElse(null);
+						if (match != null) {
+							possible = ((JSONObject) o.get(i)).get(match);
+							break;
+						}
+					} catch (JSONException e) {
+						//swallow
+					}
+				}
+
+				if (possible != null) {
+					objectToReturn = possible;
+					break;
+				}
+			}
+		}
+
+		//TODO the following can likely be refactored/removed if needed.
+		if (objectToReturn instanceof JSONArray) {
+			final JSONArray array = (JSONArray) objectToReturn;
+			if (array.length() == 0) {
+				if (mustExist) {
+					throw new IllegalStateException("Item " + objectToReturn + " is an empty array");
+				} else {
+					return null;
+				}
+		//	} else if (array.length() > 1) {
+				//throw new IllegalStateException("Item " + objectToReturn + " is a multi-valued array (length: " + array.length() + ")");
+			} else {
+				return array;
+			}
+		} else if (objectToReturn != null && !(objectToReturn instanceof JSONObject)) {
+			//throw new IllegalStateException("Item " + objectToReturn + " is neither object nor array; it is " + objectToReturn.getClass());
+			LOG.warn("Item " + objectToReturn + " is neither object nor array; it is " + objectToReturn.getClass());
+			return null;
+		}
+
+		return objectToReturn;
+	}
+
+	@SuppressWarnings("unused")
+	JSONArray getArray(final JSONObject object, final List<String> items, final List<String> potentialArrayNames) {
+		return getArray(object, true, items, potentialArrayNames);
+	}
+
+	JSONArray getArray(final JSONObject object, boolean mustExist, final List<String> rootItems, final List<String> potentialArrayNames) {
+		final Object rv = get(object, mustExist, rootItems, potentialArrayNames);
+
+		if (rv == null) {
+			assert !mustExist;
+			return null;
+		} else if (rv instanceof JSONArray) {
+			return (JSONArray) rv;
+		} else {
+			throw new IllegalStateException("Item " + Arrays.asList(rootItems) + " should be an array but it's " + rv.getClass());
+		}
+	}
+
+	ConnectorException processException(Exception e, URIBuilder uriBuilder, final String operationName) {
+		String msg = operationName + " failed: problem occurred during executing URI: " + uriBuilder + "\n\t" + e.getMessage();
+		LOG.error("{0}", msg);
+		return new ConnectorException(msg, e);
+	}
+
+	String getStringOrNull(final JSONObject object, final String item) {
+		if (object.has(item)) {
+			return (String) object.get(item); //TODO any safety or other processing details needed here?!?
+		} else {
+			return null;
 		}
 	}
 }

@@ -33,30 +33,30 @@ import static org.identityconnectors.framework.common.objects.OperationOptions.O
 import static org.testng.AssertJUnit.assertEquals;
 
 /**
- * Tests the group object class. See the superclass for the environment needed.
+ * Tests the group object class using attribute filter config. See the superclass for the environment needed.
  */
-public class GroupTest extends AbstractTest {
+public class GroupTestAttributeFilter extends AbstractTest {
 
 	private static final ObjectClass OC_GROUP = new ObjectClass(GroupProcessor.OBJECT_CLASS_NAME);
 
 	private String uuid;
 
-	@Test(priority = 100)
+	@Test(priority = 1)
 	public void initialization() {
-		grouperConnector.init(getConfiguration());
+		grouperConnector.init(getConfigurationAttributeFilter());
 	}
 	
-	@Test(priority = 110)
+	@Test(priority = 2)
 	public void testSchema() {
 		grouperConnector.schema();
 	}
 
-	@Test(priority = 120)
+	@Test(priority = 3)
 	public void testTestOperation() {
 		grouperConnector.test();
 	}
 
-	@Test(priority = 200)
+	@Test(priority = 4)
 	public void testFindByGroupName() {
 		results.clear();
 		AttributeFilter filter = (EqualsFilter) FilterBuilder
@@ -69,17 +69,7 @@ public class GroupTest extends AbstractTest {
 		uuid = group.getUid().getUidValue();
 	}
 	
-	@Test(priority = 210)
-	public void testFindByGroupNameNonExistent() {
-		results.clear();
-		AttributeFilter filter = (EqualsFilter) FilterBuilder
-				.equalTo(AttributeBuilder.build(ATTR_NAME, TEST_GROUP_NON_EXISTENT));
-
-		grouperConnector.executeQuery(OC_GROUP, filter, handler, options);
-		assertEquals("Wrong # of groups retrieved", results.size(), 0);
-	}
-
-	@Test(priority = 220)
+	@Test(priority = 10)
 	public void testFindByGroupNameWithMembers() {
 		results.clear();
 		AttributeFilter filter = (EqualsFilter) FilterBuilder
@@ -93,17 +83,7 @@ public class GroupTest extends AbstractTest {
 		assertEquals("Wrong members", Collections.singletonList(TEST_USER), members);
 	}
 	
-	@Test(priority = 230)
-	public void testFindByGroupNameWithMembersNonExistent() {
-		results.clear();
-		AttributeFilter filter = (EqualsFilter) FilterBuilder
-				.equalTo(AttributeBuilder.build(ATTR_NAME, TEST_GROUP_NON_EXISTENT));
-
-		grouperConnector.executeQuery(OC_GROUP, filter, handler, getMembersOptions());
-		assertEquals("Wrong # of groups retrieved", results.size(), 0);
-	}
-
-	@Test(priority = 240)
+	@Test(priority = 12)
 	public void testFindByGroupUuid() {
 		results.clear();
 		AttributeFilter filter = (EqualsFilter) FilterBuilder
@@ -115,17 +95,7 @@ public class GroupTest extends AbstractTest {
 		System.out.println("Found group: " + group);
 	}
 
-	@Test(priority = 250)
-	public void testFindByGroupUuidNonExistent() {
-		results.clear();
-		AttributeFilter filter = (EqualsFilter) FilterBuilder
-				.equalTo(AttributeBuilder.build(ATTR_UUID, TEST_UUID_NON_EXISTENT));
-
-		grouperConnector.executeQuery(OC_GROUP, filter, handler, options);
-		assertEquals("Wrong # of groups retrieved", results.size(), 0);
-	}
-
-	@Test(priority = 260)
+	@Test(priority = 13)
 	public void testFindByGroupUuidWihMembers() {
 		results.clear();
 		AttributeFilter filter = (EqualsFilter) FilterBuilder
@@ -138,17 +108,7 @@ public class GroupTest extends AbstractTest {
 		assertEquals("Wrong members", Collections.singletonList(TEST_USER), getMembers(group));
 	}
 
-	@Test(priority = 250)
-	public void testFindByGroupUuidWihMembersNonExistent() {
-		results.clear();
-		AttributeFilter filter = (EqualsFilter) FilterBuilder
-				.equalTo(AttributeBuilder.build(ATTR_UUID, TEST_UUID_NON_EXISTENT));
-
-		grouperConnector.executeQuery(OC_GROUP, filter, handler, getMembersOptions());
-		assertEquals("Wrong # of groups retrieved", results.size(), 0);
-	}
-
-	@Test(priority = 280)
+	@Test(priority = 14)
 	public void testGetAllGroups() {
 		results.clear();
 		grouperConnector.executeQuery(OC_GROUP, null, handler, options);
@@ -157,7 +117,7 @@ public class GroupTest extends AbstractTest {
 		}
 	}
 
-	@Test(priority = 290)
+	@Test(priority = 16)
 	public void testGetAllGroupsWithMembers() {
 		results.clear();
 		grouperConnector.executeQuery(OC_GROUP, null, handler, getMembersOptions());
@@ -166,7 +126,7 @@ public class GroupTest extends AbstractTest {
 		}
 	}
 
-	@Test(priority = 900)
+	@Test(priority = 20)
 	public void dispose() {
 		 grouperConnector.dispose();
 	}

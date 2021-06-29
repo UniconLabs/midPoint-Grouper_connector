@@ -22,8 +22,8 @@ import org.identityconnectors.framework.common.exceptions.ConfigurationException
 import org.identityconnectors.framework.spi.AbstractConfiguration;
 import org.identityconnectors.framework.spi.ConfigurationProperty;
 import org.identityconnectors.framework.spi.StatefulConfiguration;
-
 import java.util.Arrays;
+import java.util.Map;
 
 /**
  * @author surmanek
@@ -35,17 +35,27 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
 
     private static final Log LOG = Log.getLog(GrouperConfiguration.class);
 
+    private static final String DEFAULT_CONTENT_TYPE_JSON = "application/json; charset=utf-8";
+    private static final String DEFAULT_URI_BASE_PATH = "/grouper-ws/servicesRest/json/v2_4_000";
+    private static final int DEFAULT_PAGE_SIZE = 100;
+
     private String baseUrl;
+    private String uriBasePath;
     private String username;
     private GuardedString password;
     private Boolean ignoreSslValidation;
+    private String contentType;
 
     private String baseStem;
     private String[] groupIncludePattern;
     private String[] groupExcludePattern;
+    private String[] groupAttribute;
     private String subjectSource;
     private String testStem;
     private String testGroup;
+    private Integer pageSize;
+    private Boolean logRequestResponses;
+
 
     @ConfigurationProperty(order = 10, displayMessageKey = "baseUrl.display", helpMessageKey = "baseUrl.help", required = true)
     public String getBaseUrl() {
@@ -93,57 +103,9 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
     }
 
     /**
-     * Used to specify root stem for groups returned by this connector. The default is ":" (the whole tree).
-     */
-    @ConfigurationProperty(order = 50, displayMessageKey = "baseStem.display", helpMessageKey = "baseStem.help")
-    public String getBaseStem() {
-        return baseStem;
-    }
-
-    public void setBaseStem(String baseStem) {
-        this.baseStem = baseStem;
-    }
-
-    /**
-     * Which groups should be visible to this connector?
-     */
-    @ConfigurationProperty(order = 60, displayMessageKey = "groupIncludePattern.display", helpMessageKey = "groupIncludePattern.help")
-    public String[] getGroupIncludePattern() {
-        return groupIncludePattern;
-    }
-
-    public void setGroupIncludePattern(String[] groupIncludePattern) {
-        this.groupIncludePattern = groupIncludePattern;
-    }
-
-    /**
-     * Which groups should be hidden (invisible) to this connector?
-     */
-    @ConfigurationProperty(order = 70, displayMessageKey = "groupExcludePattern.display", helpMessageKey = "groupExcludePattern.help")
-    public String[] getGroupExcludePattern() {
-        return groupExcludePattern;
-    }
-
-    public void setGroupExcludePattern(String[] groupExcludePattern) {
-        this.groupExcludePattern = groupExcludePattern;
-    }
-
-    /**
-     * Used to limit subjects returned by this connector.
-     */
-    @ConfigurationProperty(order = 80, displayMessageKey = "subjectSource.display", helpMessageKey = "subjectSource.help", required = true)
-    public String getSubjectSource() {
-        return subjectSource;
-    }
-
-    public void setSubjectSource(String subjectSource) {
-        this.subjectSource = subjectSource;
-    }
-
-    /**
      * Used to specify stem that is fetched during Test Connection (if any).
      */
-    @ConfigurationProperty(order = 90, displayMessageKey = "testStem.display", helpMessageKey = "testStem.help")
+    @ConfigurationProperty(order = 50, displayMessageKey = "testStem.display", helpMessageKey = "testStem.help")
     public String getTestStem() {
         return testStem;
     }
@@ -155,7 +117,7 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
     /**
      * Used to specify group that is fetched during Test Connection (if any).
      */
-    @ConfigurationProperty(order = 100, displayMessageKey = "testGroup.display", helpMessageKey = "testGroup.help")
+    @ConfigurationProperty(order = 60, displayMessageKey = "testGroup.display", helpMessageKey = "testGroup.help")
     public String getTestGroup() {
         return testGroup;
     }
@@ -163,6 +125,131 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
     public void setTestGroup(String testGroup) {
         this.testGroup = testGroup;
     }
+
+    /**
+     * Used to specify page size for Grouper WS paging.
+     */
+    @ConfigurationProperty(order = 70, displayMessageKey = "pageSize.display", helpMessageKey = "pageSize.help")
+    public Integer getPageSize() {
+        if (pageSize != null) {
+            return pageSize;
+        } else {
+            return DEFAULT_PAGE_SIZE;
+        }
+    }
+
+    public void setPageSize(Integer pageSize) {
+        this.pageSize = pageSize;
+    }
+
+    /**
+     * Used in case the Grouper WS Base Path Changes
+     * @return
+     */
+    @ConfigurationProperty(order = 80, displayMessageKey = "uriBasePath.display", helpMessageKey = "uriBasePath.help", required = false)
+    public String getUriBasePath() {
+        if (uriBasePath != null && !uriBasePath.isBlank()) {
+            return uriBasePath;
+        } else {
+            return DEFAULT_URI_BASE_PATH;
+        }
+    }
+
+    public void setUriBasePath(String uriBasePath) {
+        this.uriBasePath = uriBasePath;
+    }
+
+    /**
+     * Used in case Grouper WS Content Type Changes
+     * @return
+     */
+    @ConfigurationProperty(order = 90, displayMessageKey = "contentType.display", helpMessageKey = "contentType.help", required = false)
+    public String getContentType() {
+        if (contentType != null && !contentType.isBlank()) {
+            return contentType;
+        } else {
+            return DEFAULT_CONTENT_TYPE_JSON;
+        }
+    }
+
+    public void setContentType(String contentType) {
+        this.contentType = contentType;
+    }
+
+
+    //TODO Implement the following in Grouper Query Filter
+    /**
+     * Used to specify root stem for groups returned by this connector. The default is ":" (the whole tree).
+     */
+    @ConfigurationProperty(order = 100, displayMessageKey = "baseStem.display", helpMessageKey = "baseStem.help")
+    public String getBaseStem() {
+        return baseStem;
+    }
+
+    public void setBaseStem(String baseStem) {
+        this.baseStem = baseStem;
+    }
+
+    /**
+     * Which groups by attribute name/value should be visible to connector
+     */
+    @ConfigurationProperty(order = 110, displayMessageKey = "groupAttribute.display", helpMessageKey = "groupAttribute.help")
+    public String[] getGroupAttribute() {
+        return groupAttribute;
+    }
+
+    public void setGroupAttribute(String[] groupAttribute) {
+        this.groupAttribute = groupAttribute;
+    }
+
+    /**
+     * Which groups should be visible to this connector?
+     */
+    @ConfigurationProperty(order = 120, displayMessageKey = "groupIncludePattern.display", helpMessageKey = "groupIncludePattern.help")
+    public String[] getGroupIncludePattern() {
+        return groupIncludePattern;
+    }
+
+    public void setGroupIncludePattern(String[] groupIncludePattern) {
+        this.groupIncludePattern = groupIncludePattern;
+    }
+
+    /**
+     * Which groups should be hidden (invisible) to this connector?
+     */
+    @ConfigurationProperty(order = 130, displayMessageKey = "groupExcludePattern.display", helpMessageKey = "groupExcludePattern.help")
+    public String[] getGroupExcludePattern() {
+        return groupExcludePattern;
+    }
+
+    public void setGroupExcludePattern(String[] groupExcludePattern) {
+        this.groupExcludePattern = groupExcludePattern;
+    }
+
+    /**
+     * Used to limit subjects returned by this connector.
+     */
+    @ConfigurationProperty(order = 140, displayMessageKey = "subjectSource.display", helpMessageKey = "subjectSource.help")
+    public String getSubjectSource() {
+        return subjectSource;
+    }
+
+    public void setSubjectSource(String subjectSource) {
+        this.subjectSource = subjectSource;
+    }
+
+    /**
+     * Should we log request/response logs to/from Grouper WS.
+     */
+    @ConfigurationProperty(order = 160, displayMessageKey = "logRequestResponses.display", helpMessageKey = "logRequestResponses.help")
+    public Boolean getLogRequestResponses() {
+        return logRequestResponses;
+    }
+
+    public void setLogRequestResponses(Boolean logRequestResponses) {
+        this.logRequestResponses = logRequestResponses;
+    }
+
 
     @Override
     public void validate() {
@@ -173,8 +260,6 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
             exceptionMsg = "Name is not provided.";
         } else if (password == null) {
             exceptionMsg = "Password is not provided.";
-        } else if (subjectSource == null) {
-            exceptionMsg = "Subject source is not provided.";
         } else {
             return;
         }
@@ -185,14 +270,20 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
     @Override
     public void release() {
         this.baseUrl = null;
+        this.uriBasePath = null;
         this.username = null;
         this.password = null;
         this.ignoreSslValidation = null;
+        this.contentType = null;
         this.baseStem = null;
         this.groupIncludePattern = null;
         this.groupExcludePattern = null;
+        this.groupAttribute = null;
         this.subjectSource = null;
+        this.testStem = null;
         this.testGroup = null;
+        this.pageSize = null;
+        this.logRequestResponses = null;
     }
 
     @Override
@@ -205,7 +296,13 @@ public class GrouperConfiguration extends AbstractConfiguration implements State
                 ", groupIncludePattern=" + Arrays.toString(groupIncludePattern) +
                 ", groupExcludePattern=" + Arrays.toString(groupExcludePattern) +
                 ", subjectSource='" + subjectSource + '\'' +
+                ", testStem='" + testStem + '\'' +
                 ", testGroup='" + testGroup + '\'' +
+                ", pageSize='" + pageSize + '\'' +
+                ", uriBasePath='" + uriBasePath + '\'' +
+                ", contentType='" + contentType + '\'' +
+                ", groupAttribute='" + groupAttribute + '\'' +
+                ", logRequestResponses='" + logRequestResponses + '\'' +
                 '}';
     }
 }

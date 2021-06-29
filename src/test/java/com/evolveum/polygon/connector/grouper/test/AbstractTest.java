@@ -48,6 +48,12 @@ class AbstractTest {
 	private static final String[] GROUP_EXCLUDE_PATTERN = { ".*_(includes|excludes|systemOfRecord|systemOfRecordAndIncludes)" };
 	private static final String SUBJECT_SOURCE = "ldap";
 	private static final String TEST_STEM = ":";
+	private static final Integer PAGE_SIZE = 5;
+	private static final String CONTENT_TYPE = "application/json; charset=utf-8";
+	private static final String URI_BASE_PATH = "/grouper-ws/servicesRest/json/v2_4_000";
+	private static final Boolean IGNORE_SSL_VALIDATION = true;
+	private static final Boolean LOG_REQUEST_RESPONSES = true;
+	private static final String GROUP_ATTRIBUTE = "control:attr:DeliverTo||midpoint";
 
 	final GrouperConnector grouperConnector = new GrouperConnector();
 	final OperationOptions options = new OperationOptions(new HashMap<>());
@@ -65,7 +71,7 @@ class AbstractTest {
 		}
 	};
 	
-	GrouperConfiguration getConfiguration() {
+	GrouperConfiguration getConfigurationBaseStem() {
 		GrouperConfiguration config = new GrouperConfiguration();
 		config.setBaseUrl(BASE_URL);
 		config.setUsername(ADMIN_USERNAME);
@@ -77,6 +83,31 @@ class AbstractTest {
 		config.setSubjectSource(SUBJECT_SOURCE);
 		config.setTestStem(TEST_STEM);
 		config.setTestGroup(TEST_GROUP);
+		config.setPageSize(PAGE_SIZE);
+		config.setUriBasePath(URI_BASE_PATH);
+		config.setContentType(CONTENT_TYPE);
+		config.setIgnoreSslValidation(IGNORE_SSL_VALIDATION);
+		config.setLogRequestResponses(LOG_REQUEST_RESPONSES);
+		return config;
+	}
+
+	GrouperConfiguration getConfigurationAttributeFilter() {
+		GrouperConfiguration config = new GrouperConfiguration();
+		config.setBaseUrl(BASE_URL);
+		config.setUsername(ADMIN_USERNAME);
+		config.setPassword(new GuardedString(ADMIN_PASSWORD.toCharArray()));
+		config.setIgnoreSslValidation(true);
+		config.setGroupIncludePattern(GROUP_INCLUDE_PATTERN);
+		config.setGroupExcludePattern(GROUP_EXCLUDE_PATTERN);
+		config.setSubjectSource(SUBJECT_SOURCE);
+		config.setTestStem(TEST_STEM);
+		config.setTestGroup(TEST_GROUP);
+		config.setPageSize(PAGE_SIZE);
+		config.setUriBasePath(URI_BASE_PATH);
+		config.setContentType(CONTENT_TYPE);
+		config.setIgnoreSslValidation(IGNORE_SSL_VALIDATION);
+		config.setLogRequestResponses(LOG_REQUEST_RESPONSES);
+		config.setGroupAttribute(new String[]{GROUP_ATTRIBUTE});
 		return config;
 	}
 }
