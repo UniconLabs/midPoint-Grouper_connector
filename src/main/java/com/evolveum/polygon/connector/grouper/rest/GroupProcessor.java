@@ -65,6 +65,7 @@ public class GroupProcessor extends Processor {
 	private static final String J_RESULT_CODE = "resultCode";
 	private static final String J_SUCCESS = "success";
 	private static final String J_WS_ATTRIBUTE_ASSIGN_TYPE = "attributeAssignType";
+	private static final String J_WS_GROUP_NOT_FOUND = "GROUP_NOT_FOUND";
 
 	private static final String J_WS_SUBJECTS = "wsSubjects";
 	private static final String J_WS_GROUP = "wsGroup";
@@ -261,10 +262,7 @@ public class GroupProcessor extends Processor {
 			addPageNumber(body, pageNumber, shouldPage);
 			final CallResponse callResponse = callRequest(request, body, (statusCode, responseBody) -> {
 				final JSONObject errorResponse = new JSONObject(responseBody);
-				final JSONObject resultMetadata = (JSONObject) getIfExists(errorResponse, List.of(J_WS_GET_MEMBERS_RESULTS, J_RESULTS), List.of(J_RESULT_METADATA));
-				final String resultCode = resultMetadata != null ? getStringOrNull(resultMetadata, J_RESULT_CODE) : null;
-				boolean notFound = "GROUP_NOT_FOUND".equals(resultCode);
-				if (notFound) {
+				if (errorResponse.toString().contains(J_WS_GROUP_NOT_FOUND)) {
 					return CallResponse.error(responseBody);
 				} else {
 					return null;
